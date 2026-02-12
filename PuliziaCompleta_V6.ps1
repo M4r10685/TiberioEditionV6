@@ -1,24 +1,108 @@
 
-Add-Type -AssemblyName PresentationFramework
+# ============================
+#   AUTO-UPDATE TIBERIO EDITION V6
+# ============================
 
-# ============================
-#   VERSIONE SCRIPT
-# ============================
+# VERSIONE LOCALE SCRIPT
 $VersioneLocale = "6.0.0"
 
-# ============================
-#   WRITE-LOG (TIBERIO EDITION)
-# ============================
-function Write-Log {
-    param([string]$msg)
+# CHANGELOG LOCALE (mostrato solo se c'è un update)
+$ChangelogLocale = @"
+- Prima versione con Auto-Update integrato
+- Modulo di pulizia completo V6
+"@
 
-    $logPath = "$env:USERPROFILE\Desktop\TiberioEditionV6.log"
-    $timestamp = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
-    $entry = "[$timestamp] $msg"
+# LINK RAW GITHUB (TESTATO)
+$UrlScriptRemoto = "https://raw.githubusercontent.com/M4r10685/TiberioEditionV6/refs/heads/main/PuliziaCompleta_V6.ps1"
 
+# PERCORSO SCRIPT LOCALE
+$ScriptPath = $MyInvocation.MyCommand.Path
+$BackupPath = "$ScriptPath.bak"
+
+# FUNZIONE: Mostra popup semplice (se possibile)
+function Mostra-Popup {
+    param(
+        [string]$Titolo,
+        [string]$Messaggio
+    )
     try {
-        Add-Content -Path $logPath -Value $entry -Encoding UTF8
-    } catch {}
+        Add-Type -AssemblyName PresentationFramework -ErrorAction Stop
+        [System.Windows.MessageBox]::Show($Messaggio, $Titolo, 'OK', 'Information') | Out-Null
+    } catch {
+        Write-Host "$Titolo - $Messaggio"
+    }
+}
+
+try {
+    # Scarica contenuto remoto
+    $RispostaRemota = Invoke-WebRequest -Uri $UrlScriptRemoto -UseBasicParsing -ErrorAction Stop
+    $TestoRemoto = $RispostaRemota.Content
+
+    # Estrae versione remota
+    if ($TestoRemoto -match '\$VersioneLocale\s*=\s*"([^"]+)"') {
+        $VersioneRemota = $matches[1]
+    } else {
+        Write-Host "Impossibile determinare la versione remota." -ForegroundColor Yellow
+        return
+    }
+
+    # Se versione uguale → esci dal modulo
+    if ($VersioneLocale -eq $VersioneRemota) {
+        Write-Host "Lo script è già aggiornato alla versione $VersioneLocale." -ForegroundColor Green
+        return
+    }
+
+    # Se versione diversa → mostra info update
+    Write-Host "Nuova versione disponibile: $VersioneRemota (attuale: $VersioneLocale)" -ForegroundColor Cyan
+
+    # Estrae changelog remoto (se presente)
+    $ChangelogRemoto = $null
+    if ($TestoRemoto -match '\$ChangelogLocale\s*=\s*@\"([\s\S]*?)\"@') {
+        $ChangelogRemoto = $matches[1].Trim()
+    }
+
+    # Testo popup
+    $MessaggioUpdate = "È disponibile una nuova versione dello script.`n`nVersione attuale: $VersioneLocale`nNuova versione: $VersioneRemota"
+    if ($ChangelogRemoto) {
+        $MessaggioUpdate += "`n`nChangelog:`n$ChangelogRemoto"
+    }
+
+    # Popup informativo
+    Mostra-Popup -Titolo "Aggiornamento disponibile" -Messaggio $MessaggioUpdate
+
+    # Backup
+    try {
+        Copy-Item -Path $ScriptPath -Destination $BackupPath -Force
+        Write-Host "Backup creato: $BackupPath" -ForegroundColor DarkGray
+    } catch {
+        Write-Host "Impossibile creare il backup: $($_.Exception.Message)" -ForegroundColor Red
+        Mostra-Popup -Titolo "Errore backup" -Messaggio "Impossibile creare il backup dello script. Aggiornamento annullato."
+        return
+    }
+
+    # Aggiornamento file
+    try {
+        Set-Content -Path $ScriptPath -Value $TestoRemoto -Force -Encoding UTF8
+        Write-Host "Script aggiornato alla versione $VersioneRemota." -ForegroundColor Green
+    } catch {
+        Write-Host "Errore durante la scrittura del file aggiornato: $($_.Exception.Message)" -ForegroundColor Red
+        Mostra-Popup -Titolo "Errore aggiornamento" -Messaggio "Errore durante l'aggiornamento. Verrà ripristinato il backup."
+        # Rollback
+        if (Test-Path $BackupPath) {
+            Copy-Item -Path $BackupPath -Destination $ScriptPath -Force
+            Write-Host "Ripristinato il backup dello script." -ForegroundColor Yellow
+        }
+        return
+    }
+
+    # Popup finale + riavvio
+    Mostra-Popup -Titolo "Aggiornamento completato" -Messaggio "Lo script è stato aggiornato alla versione $VersioneRemota e verrà riavviato."
+    Write-Host "Riavvio dello script aggiornato..." -ForegroundColor Cyan
+    Start-Process "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass -File `"$ScriptPath`""
+    exit
+}
+catch {
+    Write-Host "Errore durante il controllo aggiornamenti: $($_.Exception.Message)" -ForegroundColor Red
 }
 
 # ============================
