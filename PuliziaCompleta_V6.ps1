@@ -98,8 +98,9 @@ try {
     # Popup finale + riavvio
     Mostra-Popup -Titolo "Aggiornamento completato" -Messaggio "Lo script è stato aggiornato alla versione $VersioneRemota e verrà riavviato."
     Write-Host "Riavvio dello script aggiornato..." -ForegroundColor Cyan
-    Start-Process "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass -File `"$ScriptPath`""
-    exit
+    Start-Process powershell.exe -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$ScriptPath`"") -WindowStyle Normal
+
+
 }
 catch {
     Write-Host "Errore durante il controllo aggiornamenti: $($_.Exception.Message)" -ForegroundColor Red
