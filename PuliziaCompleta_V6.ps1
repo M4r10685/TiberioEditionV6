@@ -1,10 +1,11 @@
 
+﻿
 # ============================
 #   AUTO-UPDATE TIBERIO EDITION V6
 # ============================
 
 # VERSIONE LOCALE SCRIPT
-$VersioneLocale = "6.2.0"
+$VersioneLocale = "6.3.0"
 
 # CHANGELOG LOCALE (mostrato solo se c'è un update)
 $ChangelogLocale = @"
@@ -601,3 +602,4 @@ $BtnEsci.Add_Click({
 # ============================
 Write-Log "Avvio Tiberio Edition V6 GUI..."
 $window.ShowDialog() | Out-Null
+
