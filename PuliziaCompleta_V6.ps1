@@ -4,7 +4,7 @@
 # ============================
 
 # VERSIONE LOCALE SCRIPT
-$VersioneLocale = "6.0.0"
+$VersioneLocale = "6.1.0"
 
 # CHANGELOG LOCALE (mostrato solo se c'è un update)
 $ChangelogLocale = @"
