@@ -1,11 +1,34 @@
 
-﻿
+# ============================
+#   LOGGING AVANZATO (TIBERIO EDITION)
+# ============================
+
+# Percorso file log
+$Global:LogFile = "$PSScriptRoot\TiberioEdition.log"
+
+function Write-Log {
+    param([string]$Message)
+
+    $timestamp = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+    $formatted = "[$timestamp] $Message"
+
+    # Console
+    Write-Host $formatted
+
+    # File log
+    try {
+        Add-Content -Path $Global:LogFile -Value $formatted -Encoding UTF8
+    } catch {
+        Write-Host "[ERRORE LOG] Impossibile scrivere nel file log."
+    }
+}
+
 # ============================
 #   AUTO-UPDATE TIBERIO EDITION V6
 # ============================
 
 # VERSIONE LOCALE SCRIPT
-$VersioneLocale = "6.3.0"
+$VersioneLocale = "6.2.0"
 
 # CHANGELOG LOCALE (mostrato solo se c'è un update)
 $ChangelogLocale = @"
@@ -35,6 +58,8 @@ function Mostra-Popup {
 }
 
 try {
+    Write-Log "Controllo aggiornamenti..."
+
     # Scarica contenuto remoto
     $RispostaRemota = Invoke-WebRequest -Uri $UrlScriptRemoto -UseBasicParsing -ErrorAction Stop
     $TestoRemoto = $RispostaRemota.Content
@@ -42,19 +67,20 @@ try {
     # Estrae versione remota
     if ($TestoRemoto -match '\$VersioneLocale\s*=\s*"([^"]+)"') {
         $VersioneRemota = $matches[1]
+        Write-Log "Versione remota trovata: $VersioneRemota"
     } else {
-        Write-Host "Impossibile determinare la versione remota." -ForegroundColor Yellow
+        Write-Log "Impossibile determinare la versione remota."
         return
     }
 
     # Se versione uguale → esci dal modulo
     if ($VersioneLocale -eq $VersioneRemota) {
-        Write-Host "Lo script è già aggiornato alla versione $VersioneLocale." -ForegroundColor Green
+        Write-Log "Lo script è già aggiornato alla versione $VersioneLocale."
         return
     }
 
     # Se versione diversa → mostra info update
-    Write-Host "Nuova versione disponibile: $VersioneRemota (attuale: $VersioneLocale)" -ForegroundColor Cyan
+    Write-Log "Nuova versione disponibile: $VersioneRemota (attuale: $VersioneLocale)"
 
     # Estrae changelog remoto (se presente)
     $ChangelogRemoto = $null
@@ -74,9 +100,9 @@ try {
     # Backup
     try {
         Copy-Item -Path $ScriptPath -Destination $BackupPath -Force
-        Write-Host "Backup creato: $BackupPath" -ForegroundColor DarkGray
+        Write-Log "Backup creato: $BackupPath"
     } catch {
-        Write-Host "Impossibile creare il backup: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Log "Impossibile creare il backup: $($_.Exception.Message)"
         Mostra-Popup -Titolo "Errore backup" -Messaggio "Impossibile creare il backup dello script. Aggiornamento annullato."
         return
     }
@@ -84,27 +110,27 @@ try {
     # Aggiornamento file
     try {
         Set-Content -Path $ScriptPath -Value $TestoRemoto -Force -Encoding UTF8
-        Write-Host "Script aggiornato alla versione $VersioneRemota." -ForegroundColor Green
+        Write-Log "Script aggiornato alla versione $VersioneRemota."
     } catch {
-        Write-Host "Errore durante la scrittura del file aggiornato: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Log "Errore durante la scrittura del file aggiornato: $($_.Exception.Message)"
         Mostra-Popup -Titolo "Errore aggiornamento" -Messaggio "Errore durante l'aggiornamento. Verrà ripristinato il backup."
         # Rollback
         if (Test-Path $BackupPath) {
             Copy-Item -Path $BackupPath -Destination $ScriptPath -Force
-            Write-Host "Ripristinato il backup dello script." -ForegroundColor Yellow
+            Write-Log "Ripristinato il backup dello script."
         }
         return
     }
 
     # Popup finale + riavvio
     Mostra-Popup -Titolo "Aggiornamento completato" -Messaggio "Lo script è stato aggiornato alla versione $VersioneRemota e verrà riavviato."
-    Write-Host "Riavvio dello script aggiornato..." -ForegroundColor Cyan
+    Write-Log "Riavvio dello script aggiornato..."
+    Start-Sleep -Milliseconds 300
     Start-Process powershell.exe -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$ScriptPath`"") -WindowStyle Normal
-
-
+    exit
 }
 catch {
-    Write-Host "Errore durante il controllo aggiornamenti: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Log "Errore durante il controllo aggiornamenti: $($_.Exception.Message)"
 }
 
 # ============================
@@ -143,91 +169,6 @@ function Clean-Path {
     return $freed
 }
 
-# ============================
-#   AUTO-UPDATE V6 (SMART PARSER ONEDRIVE – AVANZATO)
-# ============================
-
-$script:UltimaVersioneRemota = $null
-
-function Get-RemoteScriptContent {
-    param([string]$Url)
-
-    Write-Log "Download contenuto remoto da OneDrive..."
-
-    try {
-        $contenuto = Invoke-WebRequest -Uri $Url -UseBasicParsing -ErrorAction Stop
-        Write-Log "Contenuto remoto scaricato correttamente"
-        return $contenuto.Content
-    }
-    catch {
-        Write-Log "Errore durante il download del contenuto remoto: $_"
-        return $null
-    }
-}
-
-function Controlla-Aggiornamenti {
-    param([string]$UrlRemoto)
-
-    Write-Log "Controllo aggiornamenti..."
-
-    $contenuto = Get-RemoteScriptContent -Url $UrlRemoto
-    if (-not $contenuto) {
-        Write-Log "Nessun contenuto remoto trovato"
-        return "Errore"
-    }
-
-    if ($contenuto -match '\$VersioneLocale\s*=\s*"([^"]+)"') {
-        $VersioneRemota = $matches[1]
-        $script:UltimaVersioneRemota = $VersioneRemota
-        Write-Log "Versione remota trovata: $VersioneRemota"
-    } else {
-        Write-Log "Impossibile leggere la versione remota"
-        return "Errore"
-    }
-
-    if ($VersioneRemota -ne $VersioneLocale) {
-        Write-Log "Nuova versione disponibile: $VersioneRemota"
-        return $contenuto
-    } else {
-        Write-Log "La versione è già aggiornata"
-        return "OK"
-    }
-}
-
-function Aggiorna-Script {
-    param(
-        [string]$NuovoContenuto,
-        [string]$PercorsoLocale
-    )
-
-    Write-Log "Aggiornamento script locale (versione avanzata)..."
-
-    try {
-        # Backup automatico versione precedente
-        $timestamp = (Get-Date).ToString("yyyyMMdd_HHmmss")
-        $backupPath = "$PercorsoLocale.bak_$timestamp"
-
-        try {
-            if (Test-Path $PercorsoLocale) {
-                Copy-Item -Path $PercorsoLocale -Destination $backupPath -Force -ErrorAction SilentlyContinue
-                Write-Log "Backup creato: $backupPath"
-            } else {
-                Write-Log "File locale non trovato, nessun backup creato"
-            }
-        } catch {
-            Write-Log "Errore durante la creazione del backup: $_"
-        }
-
-        # Scrittura nuova versione
-        $NuovoContenuto | Out-File -FilePath $PercorsoLocale -Encoding UTF8 -Force
-        Write-Log "Aggiornamento completato con successo"
-        return "OK"
-    }
-    catch {
-        Write-Log "Errore durante l'aggiornamento: $_"
-        return "Errore"
-    }
-}
 
 # ============================
 #   FUNZIONI OPERATIVE REALI
@@ -381,6 +322,14 @@ $timer.Add_Tick({
 $timer.Start()
 
 # ============================
+#   AVVIO SCRIPT
+# ============================
+
+Write-Log "Avvio Tiberio Edition V6..."
+$tot = Pulizia-Base
+Write-Log "Pulizia completata. Byte liberati: $tot"
+
+# ============================
 #   GUI XAML
 # ============================
 [xml]$xaml = @"
@@ -511,91 +460,7 @@ $BtnOttimizzaRete.Add_Click({
     $TxtStatus.Text = "Ottimizzazione rete completata."
 })
 
-$BtnControllaAggiornamenti.Add_Click({
-    $TxtStatus.Text = "Controllo aggiornamenti..."
-    Write-Log "Avvio controllo aggiornamenti"
 
-    # LINK ONEDRIVE DIRETTO
-    $url = "https://api.onedrive.com/v1.0/shares/u!654a95f7b5369271!IQAtDuNHKFfjSYOfZx4IgNpLAX5VkNjpBAQ67sQjsgMRX9w/root/content"
-
-    $risultato = Controlla-Aggiornamenti -UrlRemoto $url
-
-    if ($risultato -eq "OK") {
-        $TxtStatus.Text = "La versione è già aggiornata."
-        [System.Windows.MessageBox]::Show(
-            "La versione locale ($VersioneLocale) è già aggiornata.",
-            "Controllo aggiornamenti",
-            "OK",
-            "Information"
-        ) | Out-Null
-    }
-    elseif ($risultato -eq "Errore") {
-        $TxtStatus.Text = "Errore durante il controllo aggiornamenti."
-        [System.Windows.MessageBox]::Show(
-            "Si è verificato un errore durante il controllo degli aggiornamenti. Controlla il log per i dettagli.",
-            "Errore aggiornamenti",
-            "OK",
-            "Error"
-        ) | Out-Null
-    }
-    else {
-        # Nuova versione disponibile
-        $versioneRemota = $script:UltimaVersioneRemota
-        $msg = "È stata trovata una nuova versione: $versioneRemota (locale: $VersioneLocale)." +
-               "`nVuoi aggiornare ora? Verrà creato un backup automatico."
-
-        $choice = [System.Windows.MessageBox]::Show(
-            $msg,
-            "Nuova versione disponibile",
-            "YesNo",
-            "Question"
-        )
-
-        if ($choice -eq "Yes") {
-            Write-Log "Utente ha confermato l'aggiornamento alla versione $versioneRemota"
-            $PercorsoLocale = $MyInvocation.MyCommand.Path
-            $esito = Aggiorna-Script -NuovoContenuto $risultato -PercorsoLocale $PercorsoLocale
-
-            if ($esito -eq "OK") {
-                $TxtStatus.Text = "Aggiornamento completato. Riavvio dello script..."
-                [System.Windows.MessageBox]::Show(
-                    "Aggiornamento completato con successo alla versione $versioneRemota." +
-                    "`nLo script verrà riavviato.",
-                    "Aggiornamento completato",
-                    "OK",
-                    "Information"
-                ) | Out-Null
-
-                # Riavvio automatico dello script
-                try {
-                    Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass -File `"$PercorsoLocale`""
-                    Write-Log "Riavvio automatico dello script eseguito"
-                } catch {
-                    Write-Log "Errore durante il riavvio automatico dello script: $_"
-                }
-
-                $window.Close()
-            }
-            else {
-                $TxtStatus.Text = "Errore durante l'aggiornamento."
-                [System.Windows.MessageBox]::Show(
-                    "Si è verificato un errore durante l'aggiornamento. Controlla il log per i dettagli.",
-                    "Errore aggiornamento",
-                    "Error",
-                    "OK"
-                ) | Out-Null
-            }
-        }
-        else {
-            Write-Log "Utente ha annullato l'aggiornamento"
-            $TxtStatus.Text = "Aggiornamento annullato dall'utente."
-        }
-    }
-})
-
-$BtnEsci.Add_Click({
-    $window.Close()
-})
 
 # ============================
 #   AVVIO GUI
