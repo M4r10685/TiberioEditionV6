@@ -1,6 +1,11 @@
 # ============================
-#   LOGGING AVANZATO (TIBERIO EDITION)
+#   TIBERIO EDITION V6 - FULL POWER
+#   HEADER + LOGGING + AUTO-UPDATE GITHUB
 # ============================
+
+# ----------------------------
+#   LOGGING AVANZATO
+# ----------------------------
 
 $Global:LogFile = "$PSScriptRoot\TiberioEdition.log"
 
@@ -19,16 +24,17 @@ function Write-Log {
     }
 }
 
-# ============================
-#   AUTO-UPDATE TIBERIO EDITION V6 (GITHUB)
-# ============================
+# ----------------------------
+#   AUTO-UPDATE GITHUB
+# ----------------------------
 
 $VersioneLocale = "6.2.0"
 
 $ChangelogLocale = @"
-- Prima versione con Auto-Update integrato
-- Modulo di pulizia completo V6
+- Auto-Update GitHub
+- Logging avanzato
 - Modalità Full Power (Gaming + Rete + Ripristino)
+- Pulizia avanzata
 "@
 
 $UrlScriptRemoto = "https://raw.githubusercontent.com/M4r10685/TiberioEditionV6/refs/heads/main/PuliziaCompleta_V6.ps1"
@@ -65,7 +71,6 @@ try {
 
     if ($VersioneLocale -eq $VersioneRemota) {
         Write-Log "Lo script è già aggiornato alla versione $VersioneLocale."
-        # Nessun update → prosegue con il resto dello script
     } else {
         Write-Log "Nuova versione disponibile: $VersioneRemota (attuale: $VersioneLocale)"
 
@@ -87,11 +92,11 @@ try {
         Set-Content -Path $ScriptPath -Value $TestoRemoto -Force -Encoding UTF8
         Write-Log "Script aggiornato alla versione $VersioneRemota."
 
-        Mostra-Popup -Titolo "Aggiornamento completato" -Messaggio "Lo script è stato aggiornato alla versione $VersioneRemota e verrà riavviato."
+        Mostra-Popup -Titolo "Aggiornamento completato" -Messaggio "Lo script verrà riavviato."
         Write-Log "Riavvio dello script aggiornato..."
 
         Start-Sleep -Milliseconds 300
-        Start-Process powershell.exe -ArgumentList @("-NoProfile","-ExecutionPolicy","Bypass","-File","`"$ScriptPath`"") -WindowStyle Normal
+        Start-Process powershell.exe -ArgumentList @("-NoProfile","-ExecutionPolicy","Bypass","-File","`"$ScriptPath`"")
         exit
     }
 }
@@ -99,70 +104,51 @@ catch {
     Write-Log "Errore durante il controllo aggiornamenti: $($_.Exception.Message)"
 }
 
-# ============================
-#   CLEAN-PATH (TIBERIO EDITION)
-# ============================
-
-function Clean-Path {
-    param(
-        [string]$Path,
-        [string]$Descrizione,
-        [switch]$OldOnly,
-        [int]$Days = 7
-    )
-
-    Write-Log "Pulizia: $Descrizione ($Path)"
-
-    if (!(Test-Path $Path)) { return 0 }
-
-    $freed = 0
-
-    try {
-        $items = Get-ChildItem -Path $Path -Recurse -Force -ErrorAction SilentlyContinue
-
-        foreach ($item in $items) {
-            if ($OldOnly) {
-                if ($item.LastWriteTime -lt (Get-Date).AddDays(-$Days)) {
-                    $freed += $item.Length
-                    Remove-Item $item.FullName -Force -Recurse -ErrorAction SilentlyContinue
-                }
-            } else {
-                $freed += $item.Length
-                Remove-Item $item.FullName -Force -Recurse -ErrorAction SilentlyContinue
-            }
-        }
-    } catch {}
-
-    return $freed
-}
 
 # ============================
-#   FUNZIONI OPERATIVE REALI
+#   FUNZIONI OPERATIVE FULL POWER
 # ============================
+
+# ----------------------------
+#   PULIZIA BASE AVANZATA
+# ----------------------------
 
 function Pulizia-Base {
     Write-Log "Esecuzione Pulizia-Base"
     $tot = 0
-    $tot += Clean-Path -Path "$env:TEMP" -Descrizione "TEMP utente"
-    $tot += Clean-Path -Path "$env:WINDIR\Temp" -Descrizione "TEMP sistema"
-    $tot += Clean-Path -Path "$env:WINDIR\SoftwareDistribution\Download" -Descrizione "Cache Windows Update"
-    $tot += Clean-Path -Path "$env:WINDIR\Logs" -Descrizione "Log Windows" -OldOnly -Days 7
-    $tot += Clean-Path -Path "$env:LOCALAPPDATA\CrashDumps" -Descrizione "CrashDumps" -OldOnly -Days 7
-    $tot += Clean-Path -Path "$env:WINDIR\Prefetch" -Descrizione "Prefetch" -OldOnly -Days 10
+
+    $percorsi = @(
+        "$env:TEMP",
+        "$env:WINDIR\Temp",
+        "$env:WINDIR\SoftwareDistribution\Download",
+        "$env:WINDIR\Logs",
+        "$env:LOCALAPPDATA\CrashDumps",
+        "$env:WINDIR\Prefetch"
+    )
+
+    foreach ($p in $percorsi) {
+        $tot += Clean-Path -Path $p -Descrizione $p -OldOnly -Days 7
+    }
+
     try { Clear-RecycleBin -Force -ErrorAction SilentlyContinue } catch {}
+
     return $tot
 }
+
+# ----------------------------
+#   PULIZIA GAMING
+# ----------------------------
 
 function Pulizia-Gaming {
     Write-Log "Esecuzione Pulizia-Gaming"
     $tot = 0
 
-    # Cache giochi comuni (placeholder, puoi aggiungere percorsi specifici)
     $percorsiGaming = @(
         "$env:LOCALAPPDATA\Temp",
         "$env:LOCALAPPDATA\NVIDIA\DXCache",
         "$env:LOCALAPPDATA\NVIDIA\GLCache",
-        "$env:LOCALAPPDATA\Microsoft\Windows\INetCache"
+        "$env:LOCALAPPDATA\Microsoft\Windows\INetCache",
+        "$env:LOCALAPPDATA\CrashDumps"
     )
 
     foreach ($p in $percorsiGaming) {
@@ -172,60 +158,64 @@ function Pulizia-Gaming {
     return $tot
 }
 
+# ----------------------------
+#   MANUTENZIONE COMPLETA AVANZATA
+# ----------------------------
+
 function Manutenzione-Completa {
     Write-Log "Manutenzione Completa Avanzata avviata"
 
     $tot = Pulizia-Base
-    Write-Log "Pulizia Base completata in Manutenzione Completa. Byte liberati: $tot"
+    Write-Log "Pulizia Base completata. Byte liberati: $tot"
 
     $totGaming = Pulizia-Gaming
-    Write-Log "Pulizia Gaming completata in Manutenzione Completa. Byte liberati: $totGaming"
+    Write-Log "Pulizia Gaming completata. Byte liberati: $totGaming"
 
-    # Placeholder per eventuali moduli extra (defrag SSD escluso, solo TRIM)
     try {
-        Write-Log "Esecuzione TRIM SSD (se supportato)"
+        Write-Log "Esecuzione TRIM SSD"
         Optimize-Volume -DriveLetter C -ReTrim -ErrorAction SilentlyContinue | Out-Null
     } catch {}
 
     Write-Log "Manutenzione Completa Avanzata terminata"
 }
 
+# ----------------------------
+#   RIPARAZIONE SISTEMA
+# ----------------------------
+
 function Ripara-Sistema {
     Write-Log "Riparazione Sistema avviata"
 
-    # Esempio: DISM e SFC in modalità sicura (solo log, non blocca GUI)
     try {
-        Write-Log "Avvio DISM /ScanHealth (in background)"
+        Write-Log "Avvio DISM /ScanHealth"
         Start-Process -FilePath "dism.exe" -ArgumentList "/Online","/Cleanup-Image","/ScanHealth" -WindowStyle Hidden
-    } catch {
-        Write-Log "Errore avvio DISM: $($_.Exception.Message)"
-    }
+    } catch {}
 
     try {
-        Write-Log "Avvio SFC /SCANNOW (in background)"
+        Write-Log "Avvio SFC /SCANNOW"
         Start-Process -FilePath "sfc.exe" -ArgumentList "/SCANNOW" -WindowStyle Hidden
-    } catch {
-        Write-Log "Errore avvio SFC: $($_.Exception.Message)"
-    }
+    } catch {}
 
-    Write-Log "Riparazione Sistema avviata (controlla separatamente l'esito nei log di sistema)"
+    Write-Log "Riparazione Sistema avviata (controlla log di sistema)"
 }
+
+# ----------------------------
+#   GAMING BOOST BASE
+# ----------------------------
 
 function Gaming-Boost {
     Write-Log "Gaming Boost V6 avviato"
 
-    # Priorità CPU per ETS2 se già avviato
     try {
         $proc = Get-Process -Name "eurotrucks2" -ErrorAction SilentlyContinue
         if ($proc) {
             $proc.PriorityClass = "AboveNormal"
-            Write-Log "Impostata priorità AboveNormal per eurotrucks2"
+            Write-Log "Priorità CPU impostata a AboveNormal"
         }
     } catch {}
 
-    # Disattivazione ottimizzazioni di risparmio energia su scheda di rete (placeholder generico)
     try {
-        Write-Log "Ottimizzazione base rete (TCP)"
+        Write-Log "Ottimizzazione rete base"
         netsh int tcp set global autotuninglevel=normal | Out-Null
         netsh int tcp set global rss=enabled | Out-Null
         netsh int tcp set global chimney=default | Out-Null
@@ -235,44 +225,42 @@ function Gaming-Boost {
     Write-Log "Gaming Boost V6 completato"
 }
 
+# ----------------------------
+#   GAMING BOOST PLUS (FULL POWER)
+# ----------------------------
+
 function Gaming-BoostPlus {
     Write-Log "Gaming Boost PLUS V6 avviato"
 
-    # Aumento priorità CPU per il gioco
     try {
         $proc = Get-Process -Name "eurotrucks2" -ErrorAction SilentlyContinue
         if ($proc) {
             $proc.PriorityClass = "High"
-            Write-Log "Impostata priorità High per eurotrucks2"
+            Write-Log "Priorità CPU impostata a High"
         }
     } catch {}
 
-    # Timer resolution / soglia performance (approccio powercfg)
     try {
-        Write-Log "Impostazione Timer/Performance Threshold a 0 (massime prestazioni)"
+        Write-Log "Timer/Performance Threshold → 0"
         powercfg -setacvalueindex scheme_current sub_processor PERFINCTHRESHOLD 0 | Out-Null
         powercfg -setactive scheme_current | Out-Null
     } catch {}
 
-    # Profilo energetico High Performance (SCHEME_MIN)
     try {
-        Write-Log "Impostazione profilo energetico High Performance (SCHEME_MIN)"
+        Write-Log "Profilo energetico High Performance"
         powercfg -setactive SCHEME_MIN | Out-Null
     } catch {}
 
-    # Ottimizzazione rete aggressiva
     try {
-        Write-Log "Ottimizzazione rete avanzata (Gaming Boost PLUS)"
+        Write-Log "Ottimizzazione rete avanzata"
         netsh int tcp set global autotuninglevel=disabled | Out-Null
         netsh int tcp set global rss=disabled | Out-Null
         netsh int tcp set global chimney=disabled | Out-Null
         netsh int tcp set heuristics disabled | Out-Null
     } catch {}
 
-    # Disattivazione servizi non essenziali
     try {
-        Write-Log "Disattivazione servizi non essenziali (SysMain, WSearch, DiagTrack)"
-
+        Write-Log "Disattivazione servizi non essenziali"
         Stop-Service "SysMain" -Force -ErrorAction SilentlyContinue
         Set-Service "SysMain" -StartupType Disabled -ErrorAction SilentlyContinue
 
@@ -283,9 +271,8 @@ function Gaming-BoostPlus {
         Set-Service "DiagTrack" -StartupType Disabled -ErrorAction SilentlyContinue
     } catch {}
 
-    # Network Throttling Index → disabilitato (0xffffffff)
     try {
-        Write-Log "Impostazione NetworkThrottlingIndex a 0xffffffff (disabilitato)"
+        Write-Log "NetworkThrottlingIndex → 0xffffffff"
         New-Item -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" -Force | Out-Null
         Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" `
             -Name "NetworkThrottlingIndex" -Value 0xffffffff -ErrorAction SilentlyContinue
@@ -294,13 +281,15 @@ function Gaming-BoostPlus {
     Write-Log "Gaming Boost PLUS V6 completato"
 }
 
+# ----------------------------
+#   RIPRISTINO COMPLETO
+# ----------------------------
+
 function Ripristino-Completo {
-    Write-Log "Ripristino completo automatico avviato"
+    Write-Log "Ripristino completo avviato"
 
-    # Ripristino servizi
     try {
-        Write-Log "Ripristino servizi SysMain, WSearch, DiagTrack"
-
+        Write-Log "Ripristino servizi"
         Set-Service "SysMain" -StartupType Automatic -ErrorAction SilentlyContinue
         Start-Service "SysMain" -ErrorAction SilentlyContinue
 
@@ -311,44 +300,43 @@ function Ripristino-Completo {
         Start-Service "DiagTrack" -ErrorAction SilentlyContinue
     } catch {}
 
-    # Ripristino priorità CPU
     try {
-        Write-Log "Ripristino priorità CPU per explorer"
+        Write-Log "Ripristino priorità CPU"
         $proc = Get-Process -Name "explorer" -ErrorAction SilentlyContinue
         if ($proc) { $proc.PriorityClass = "Normal" }
     } catch {}
 
-    # Ripristino timer di sistema
     try {
-        Write-Log "Ripristino Performance Threshold a 50"
+        Write-Log "Ripristino Performance Threshold → 50"
         powercfg -setacvalueindex scheme_current sub_processor PERFINCTHRESHOLD 50 | Out-Null
         powercfg -setactive scheme_current | Out-Null
     } catch {}
 
-    # Ripristino rete
     try {
-        Write-Log "Ripristino impostazioni rete TCP"
+        Write-Log "Ripristino rete TCP"
         netsh int tcp set global autotuninglevel=normal | Out-Null
         netsh int tcp set global rss=enabled | Out-Null
         netsh int tcp set global chimney=default | Out-Null
         netsh int tcp set heuristics enabled | Out-Null
     } catch {}
 
-    # Ripristino Network Throttling Index
     try {
-        Write-Log "Ripristino NetworkThrottlingIndex a 10"
+        Write-Log "Ripristino NetworkThrottlingIndex → 10"
         Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" `
             -Name "NetworkThrottlingIndex" -Value 10 -ErrorAction SilentlyContinue
     } catch {}
 
-    # Ripristino profilo energetico bilanciato
     try {
-        Write-Log "Ripristino profilo energetico Bilanciato (SCHEME_BALANCED)"
+        Write-Log "Profilo energetico Bilanciato"
         powercfg -setactive SCHEME_BALANCED | Out-Null
     } catch {}
 
     Write-Log "Ripristino completo terminato"
 }
+
+# ----------------------------
+#   OTTIMIZZAZIONE RETE AVANZATA
+# ----------------------------
 
 function Ottimizza-Rete {
     Write-Log "Ottimizzazione rete avanzata avviata"
@@ -358,12 +346,10 @@ function Ottimizza-Rete {
         netsh int tcp set global rss=enabled | Out-Null
         netsh int tcp set global chimney=default | Out-Null
         netsh int tcp set heuristics disabled | Out-Null
-    } catch {
-        Write-Log "Errore durante ottimizzazione rete: $($_.Exception.Message)"
-    }
+    } catch {}
 
     try {
-        Write-Log "Impostazione SystemResponsiveness a 10 (profilo gaming bilanciato)"
+        Write-Log "SystemResponsiveness → 10"
         New-Item -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" -Force | Out-Null
         Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" `
             -Name "SystemResponsiveness" -Value 10 -ErrorAction SilentlyContinue
@@ -412,8 +398,17 @@ $timer.Start()
 # ============================
 
 Write-Log "Avvio Tiberio Edition V6 (fase pre-GUI)..."
-$tot = Pulizia-Base
-Write-Log "Pulizia Base iniziale completata. Byte liberati: $tot"
+
+# Pulizia iniziale NON BLOCCANTE (evita crash dopo update)
+Start-Job -ScriptBlock {
+    try {
+        $tot = Pulizia-Base
+        Write-Log "Pulizia Base iniziale completata. Byte liberati: $tot"
+    } catch {
+        Write-Log "Errore durante la pulizia iniziale: $($_.Exception.Message)"
+    }
+} | Out-Null
+
 
 # ============================
 #   GUI XAML
@@ -422,7 +417,7 @@ Write-Log "Pulizia Base iniziale completata. Byte liberati: $tot"
 [xml]$xaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Tiberio Edition V6" Height="440" Width="720"
+        Title="Tiberio Edition V6 - Full Power" Height="440" Width="720"
         WindowStartupLocation="CenterScreen"
         Background="#F3F3F3"
         ResizeMode="NoResize">
@@ -434,7 +429,7 @@ Write-Log "Pulizia Base iniziale completata. Byte liberati: $tot"
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Text="Pulizia Completa - Tiberio Edition V6"
+        <TextBlock Text="Pulizia Completa - Tiberio Edition V6 (Full Power)"
                    FontSize="22"
                    FontWeight="Bold"
                    Foreground="#202020"
@@ -550,6 +545,10 @@ $BtnOttimizzaRete.Add_Click({
     $TxtStatus.Text = "Ottimizzazione rete completata."
 })
 
+# ----------------------------
+#   PULSANTE AGGIORNAMENTI (GITHUB)
+# ----------------------------
+
 $BtnControllaAggiornamenti.Add_Click({
     Write-Log "Controllo aggiornamenti manuale avviato (da GUI)"
     $TxtStatus.Text = "Controllo aggiornamenti..."
@@ -597,6 +596,10 @@ $BtnControllaAggiornamenti.Add_Click({
     }
 })
 
+# ----------------------------
+#   USCITA
+# ----------------------------
+
 $BtnEsci.Add_Click({
     Write-Log "Chiusura GUI richiesta dall'utente"
     $window.Close()
@@ -608,3 +611,4 @@ $BtnEsci.Add_Click({
 
 Write-Log "Avvio Tiberio Edition V6 GUI..."
 $window.ShowDialog() | Out-Null
+
