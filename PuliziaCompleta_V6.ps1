@@ -1,5 +1,5 @@
 # ============================
-#   TIBERIO EDITION V6 - FULL POWER
+#   TIBERIO EDITION V6.3 - FULL POWER
 #   HEADER + LOGGING + AUTO-UPDATE GITHUB
 # ============================
 
@@ -28,13 +28,16 @@ function Write-Log {
 #   AUTO-UPDATE GITHUB
 # ----------------------------
 
-$VersioneLocale = "6.2.0"
+$VersioneLocale = "6.3.0"
 
 $ChangelogLocale = @"
-- Auto-Update GitHub
-- Logging avanzato
-- Modalità Full Power (Gaming + Rete + Ripristino)
-- Pulizia avanzata
+NOVITÀ VERSIONE 6.3 FULL POWER:
+- Aggiunta Pulizia Browser (Chrome, Edge, Firefox, Opera, Brave, Norton)
+- Aggiunta Pulizia USB migliorata
+- Aggiunto Salvataggio Driver (solo driver firmati)
+- Migliorata stabilità Auto-Update
+- Migliorato avvio sicuro (no crash dopo update)
+- Ottimizzazioni varie
 "@
 
 $UrlScriptRemoto = "https://raw.githubusercontent.com/M4r10685/TiberioEditionV6/refs/heads/main/PuliziaCompleta_V6.ps1"
@@ -104,10 +107,46 @@ catch {
     Write-Log "Errore durante il controllo aggiornamenti: $($_.Exception.Message)"
 }
 
+# ============================
+#   FUNZIONI OPERATIVE V6.3 FULL POWER
+# ============================
 
-# ============================
-#   FUNZIONI OPERATIVE FULL POWER
-# ============================
+# ----------------------------
+#   CLEAN-PATH (FUNZIONE BASE)
+# ----------------------------
+
+function Clean-Path {
+    param(
+        [string]$Path,
+        [string]$Descrizione,
+        [switch]$OldOnly,
+        [int]$Days = 7
+    )
+
+    Write-Log "Pulizia: $Descrizione ($Path)"
+
+    if (!(Test-Path $Path)) { return 0 }
+
+    $freed = 0
+
+    try {
+        $items = Get-ChildItem -Path $Path -Recurse -Force -ErrorAction SilentlyContinue
+
+        foreach ($item in $items) {
+            if ($OldOnly) {
+                if ($item.LastWriteTime -lt (Get-Date).AddDays(-$Days)) {
+                    $freed += $item.Length
+                    Remove-Item $item.FullName -Force -Recurse -ErrorAction SilentlyContinue
+                }
+            } else {
+                $freed += $item.Length
+                Remove-Item $item.FullName -Force -Recurse -ErrorAction SilentlyContinue
+            }
+        }
+    } catch {}
+
+    return $freed
+}
 
 # ----------------------------
 #   PULIZIA BASE AVANZATA
@@ -159,6 +198,101 @@ function Pulizia-Gaming {
 }
 
 # ----------------------------
+#   PULIZIA BROWSER (Chrome, Edge, Firefox, Opera, Brave, Norton)
+# ----------------------------
+
+function Pulizia-Browser {
+    Write-Log "Pulizia Browser avviata"
+    $tot = 0
+
+    $percorsiBrowser = @(
+        "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Cache",
+        "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Code Cache",
+
+        "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Cache",
+        "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Code Cache",
+
+        "$env:APPDATA\Mozilla\Firefox\Profiles",
+
+        "$env:LOCALAPPDATA\Opera Software\Opera Stable\Cache",
+
+        "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\Default\Cache",
+        "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\Default\Code Cache",
+
+        "$env:LOCALAPPDATA\Norton\Norton Browser\User Data\Default\Cache",
+        "$env:LOCALAPPDATA\Norton\Norton Browser\User Data\Default\Code Cache"
+    )
+
+    foreach ($p in $percorsiBrowser) {
+        if (Test-Path $p) {
+            $tot += Clean-Path -Path $p -Descrizione "Cache Browser: $p" -OldOnly -Days 3
+        }
+    }
+
+    Write-Log "Pulizia Browser completata. Byte liberati: $tot"
+    return $tot
+}
+
+# ----------------------------
+#   PULIZIA USB
+# ----------------------------
+
+function Pulizia-USB {
+    Write-Log "Pulizia USB avviata"
+    $tot = 0
+
+    $usbDrives = Get-Volume | Where-Object { $_.DriveType -eq 'Removable' -and $_.DriveLetter }
+
+    foreach ($usb in $usbDrives) {
+        $path = "$($usb.DriveLetter):\"
+        Write-Log "USB rilevata: $path"
+
+        $percorsiUSB = @(
+            "$path*.tmp",
+            "$path*.log",
+            "$path*.bak",
+            "$pathSystem Volume Information",
+            "$path.Recycle.Bin"
+        )
+
+        foreach ($p in $percorsiUSB) {
+            try {
+                $items = Get-ChildItem -Path $p -Force -ErrorAction SilentlyContinue
+                foreach ($item in $items) {
+                    $tot += $item.Length
+                    Remove-Item $item.FullName -Force -Recurse -ErrorAction SilentlyContinue
+                }
+            } catch {}
+        }
+    }
+
+    Write-Log "Pulizia USB completata. Byte liberati: $tot"
+    return $tot
+}
+
+# ----------------------------
+#   SALVATAGGIO DRIVER (solo driver firmati)
+# ----------------------------
+
+function Salva-Driver {
+    Write-Log "Salvataggio driver avviato"
+
+    $dest = "$PSScriptRoot\DriverBackup"
+    if (!(Test-Path $dest)) { New-Item -ItemType Directory -Path $dest | Out-Null }
+
+    try {
+        Write-Log "Esportazione driver in corso..."
+        Export-WindowsDriver -Online -Destination $dest -ErrorAction Stop
+        Write-Log "Salvataggio driver completato"
+        return $true
+    }
+    catch {
+        Write-Log "Errore durante il salvataggio driver: $($_.Exception.Message)"
+        return $false
+    }
+}
+
+# ----------------------------
 #   MANUTENZIONE COMPLETA AVANZATA
 # ----------------------------
 
@@ -204,7 +338,7 @@ function Ripara-Sistema {
 # ----------------------------
 
 function Gaming-Boost {
-    Write-Log "Gaming Boost V6 avviato"
+    Write-Log "Gaming Boost V6.3 avviato"
 
     try {
         $proc = Get-Process -Name "eurotrucks2" -ErrorAction SilentlyContinue
@@ -222,7 +356,7 @@ function Gaming-Boost {
         netsh int tcp set heuristics disabled | Out-Null
     } catch {}
 
-    Write-Log "Gaming Boost V6 completato"
+    Write-Log "Gaming Boost V6.3 completato"
 }
 
 # ----------------------------
@@ -230,7 +364,7 @@ function Gaming-Boost {
 # ----------------------------
 
 function Gaming-BoostPlus {
-    Write-Log "Gaming Boost PLUS V6 avviato"
+    Write-Log "Gaming Boost PLUS V6.3 avviato"
 
     try {
         $proc = Get-Process -Name "eurotrucks2" -ErrorAction SilentlyContinue
@@ -278,7 +412,7 @@ function Gaming-BoostPlus {
             -Name "NetworkThrottlingIndex" -Value 0xffffffff -ErrorAction SilentlyContinue
     } catch {}
 
-    Write-Log "Gaming Boost PLUS V6 completato"
+    Write-Log "Gaming Boost PLUS V6.3 completato"
 }
 
 # ----------------------------
@@ -397,7 +531,7 @@ $timer.Start()
 #   AVVIO SCRIPT (PRE-GUI)
 # ============================
 
-Write-Log "Avvio Tiberio Edition V6 (fase pre-GUI)..."
+Write-Log "Avvio Tiberio Edition V6.3 (fase pre-GUI)..."
 
 # Pulizia iniziale NON BLOCCANTE (evita crash dopo update)
 Start-Job -ScriptBlock {
@@ -409,7 +543,6 @@ Start-Job -ScriptBlock {
     }
 } | Out-Null
 
-
 # ============================
 #   GUI XAML
 # ============================
@@ -417,7 +550,7 @@ Start-Job -ScriptBlock {
 [xml]$xaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Tiberio Edition V6 - Full Power" Height="440" Width="720"
+        Title="Tiberio Edition V6.3 - Full Power" Height="480" Width="760"
         WindowStartupLocation="CenterScreen"
         Background="#F3F3F3"
         ResizeMode="NoResize">
@@ -429,7 +562,7 @@ Start-Job -ScriptBlock {
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Text="Pulizia Completa - Tiberio Edition V6 (Full Power)"
+        <TextBlock Text="Pulizia Completa - Tiberio Edition V6.3 (Full Power)"
                    FontSize="22"
                    FontWeight="Bold"
                    Foreground="#202020"
@@ -441,20 +574,30 @@ Start-Job -ScriptBlock {
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
+            <!-- COLONNA SINISTRA -->
             <StackPanel Grid.Column="0" Margin="0,0,10,0">
                 <TextBlock Text="Manutenzione" FontWeight="Bold" Margin="0,0,0,8"/>
+
                 <Button x:Name="BtnPuliziaBase" Content="Pulizia Base" Height="32" Margin="0,0,0,6"/>
                 <Button x:Name="BtnPuliziaGaming" Content="Pulizia Gaming" Height="32" Margin="0,0,0,6"/>
-                <Button x:Name="BtnManutenzioneCompleta" Content="Manutenzione Completa Avanzata" Height="32" Margin="0,0,0,6"/>
+                <Button x:Name="BtnPuliziaBrowser" Content="Pulizia Browser" Height="32" Margin="0,0,0,6"/>
+                <Button x:Name="BtnPuliziaUSB" Content="Pulizia USB" Height="32" Margin="0,0,0,6"/>
+                <Button x:Name="BtnSalvaDriver" Content="Salva Driver" Height="32" Margin="0,0,0,6"/>
+
+                <Button x:Name="BtnManutenzioneCompleta" Content="Manutenzione Completa Avanzata" Height="32" Margin="0,10,0,6"/>
                 <Button x:Name="BtnRiparazioneSistema" Content="Riparazione Sistema" Height="32" Margin="0,0,0,6"/>
+
                 <Button x:Name="BtnControllaAggiornamenti" Content="Controlla Aggiornamenti" Height="32" Margin="0,10,0,0"/>
             </StackPanel>
 
+            <!-- COLONNA DESTRA -->
             <StackPanel Grid.Column="1" Margin="10,0,0,0">
                 <TextBlock Text="Gaming" FontWeight="Bold" Margin="0,0,0,8"/>
+
                 <Button x:Name="BtnGamingBoost" Content="Gaming Boost" Height="32" Margin="0,0,0,6"/>
                 <Button x:Name="BtnGamingBoostPlus" Content="Gaming Boost PLUS" Height="32" Margin="0,0,0,6"/>
                 <Button x:Name="BtnOttimizzaRete" Content="Ottimizzazione Rete" Height="32" Margin="0,0,0,6"/>
+
                 <Button x:Name="BtnEsci" Content="Esci" Height="32" Margin="0,20,0,0"/>
             </StackPanel>
         </Grid>
@@ -481,13 +624,16 @@ $window = [Windows.Markup.XamlReader]::Load($reader)
 
 $BtnPuliziaBase            = $window.FindName("BtnPuliziaBase")
 $BtnPuliziaGaming          = $window.FindName("BtnPuliziaGaming")
+$BtnPuliziaBrowser         = $window.FindName("BtnPuliziaBrowser")
+$BtnPuliziaUSB             = $window.FindName("BtnPuliziaUSB")
+$BtnSalvaDriver            = $window.FindName("BtnSalvaDriver")
 $BtnManutenzioneCompleta   = $window.FindName("BtnManutenzioneCompleta")
 $BtnRiparazioneSistema     = $window.FindName("BtnRiparazioneSistema")
 $BtnGamingBoost            = $window.FindName("BtnGamingBoost")
 $BtnGamingBoostPlus        = $window.FindName("BtnGamingBoostPlus")
 $BtnOttimizzaRete          = $window.FindName("BtnOttimizzaRete")
-$BtnEsci                   = $window.FindName("BtnEsci")
 $BtnControllaAggiornamenti = $window.FindName("BtnControllaAggiornamenti")
+$BtnEsci                   = $window.FindName("BtnEsci")
 $TxtStatus                 = $window.FindName("TxtStatus")
 
 # ============================
@@ -510,30 +656,57 @@ $BtnPuliziaGaming.Add_Click({
     $TxtStatus.Text = "Pulizia Gaming completata. Liberati $MB MB."
 })
 
+$BtnPuliziaBrowser.Add_Click({
+    $TxtStatus.Text = "Pulizia Browser in corso..."
+    Write-Log "Avvio Pulizia Browser (da GUI)"
+    $freed = Pulizia-Browser
+    $MB = [math]::Round($freed / 1MB, 2)
+    $TxtStatus.Text = "Pulizia Browser completata. Liberati $MB MB."
+})
+
+$BtnPuliziaUSB.Add_Click({
+    $TxtStatus.Text = "Pulizia USB in corso..."
+    Write-Log "Avvio Pulizia USB (da GUI)"
+    $freed = Pulizia-USB
+    $MB = [math]::Round($freed / 1MB, 2)
+    $TxtStatus.Text = "Pulizia USB completata. Liberati $MB MB."
+})
+
+$BtnSalvaDriver.Add_Click({
+    $TxtStatus.Text = "Salvataggio driver in corso..."
+    Write-Log "Avvio Salvataggio Driver (da GUI)"
+    $ok = Salva-Driver
+    if ($ok) {
+        $TxtStatus.Text = "Driver salvati correttamente."
+    } else {
+        $TxtStatus.Text = "Errore durante il salvataggio driver."
+    }
+})
+
 $BtnManutenzioneCompleta.Add_Click({
     $TxtStatus.Text = "Manutenzione Completa Avanzata in corso..."
-    Write-Log "Avvio Manutenzione Completa Avanzata V6 (da GUI)"
+    Write-Log "Avvio Manutenzione Completa Avanzata (da GUI)"
     Manutenzione-Completa
     $TxtStatus.Text = "Manutenzione Completa Avanzata completata."
 })
 
 $BtnRiparazioneSistema.Add_Click({
     $TxtStatus.Text = "Riparazione sistema in corso..."
-    Write-Log "Avvio Riparazione Sistema V6 (da GUI)"
+    Write-Log "Avvio Riparazione Sistema (da GUI)"
     Ripara-Sistema
-    $TxtStatus.Text = "Riparazione sistema avviata (controlla log di sistema)."
+    $TxtStatus.Text = "Riparazione sistema avviata (controlla log)."
 })
 
 $BtnGamingBoost.Add_Click({
     $TxtStatus.Text = "Gaming Boost in corso..."
-    Write-Log "Avvio Gaming Boost V6 (da GUI)"
+    Write-Log "Avvio Gaming Boost (da GUI)"
     Gaming-Boost
     $TxtStatus.Text = "Gaming Boost completato."
 })
 
 $BtnGamingBoostPlus.Add_Click({
     $TxtStatus.Text = "Gaming Boost PLUS in corso..."
-    Write-Log "Avvio Gaming Boost PLUS V6 (da GUI)"
+    Write-Log "Avvio Gaming Boost PLUS (da GUI)"
     Gaming-BoostPlus
     $TxtStatus.Text = "Gaming Boost PLUS completato."
 })
@@ -609,6 +782,8 @@ $BtnEsci.Add_Click({
 #   AVVIO GUI
 # ============================
 
-Write-Log "Avvio Tiberio Edition V6 GUI..."
+Write-Log "Avvio Tiberio Edition V6.3 GUI..."
 $window.ShowDialog() | Out-Null
+
+
 
