@@ -496,6 +496,8 @@ function Ottimizza-Rete {
 #   AUTO-GAMING-BOOST (ETS2)
 # ============================
 
+Add-Type -AssemblyName PresentationFramework   
+
 $global:GamingBoostAttivo = $false
 
 function Controlla-ETS2 {
