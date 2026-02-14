@@ -11,7 +11,7 @@ Add-Type -AssemblyName WindowsBase
 #   VERSIONE + CHANGELOG + GITHUB
 # ----------------------------
 
-$VersioneLocale = "6.3.1"
+$VersioneLocale = "6.3.2"
 
 $ChangelogLocale = @"
 NOVITÀ VERSIONE 6.3 FULL POWER:
