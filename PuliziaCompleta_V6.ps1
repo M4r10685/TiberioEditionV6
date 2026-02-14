@@ -11,7 +11,7 @@ Add-Type -AssemblyName WindowsBase
 #   VERSIONE + CHANGELOG + GITHUB
 # ----------------------------
 
-$VersioneLocale = "6.3.0"
+$VersioneLocale = "6.3.1"
 
 $ChangelogLocale = @"
 NOVITÀ VERSIONE 6.3 FULL POWER:
@@ -282,20 +282,33 @@ function Pulizia-USB {
 # ----------------------------
 
 function Salva-Driver {
-    Write-Log "Salvataggio driver avviato"
-
-    $dest = "$PSScriptRoot\DriverBackup"
-    if (!(Test-Path $dest)) { New-Item -ItemType Directory -Path $dest | Out-Null }
-
     try {
-        Write-Log "Esportazione driver in corso..."
-        Export-WindowsDriver -Online -Destination $dest -ErrorAction Stop
-        Write-Log "Salvataggio driver completato"
-        return $true
+        $dest = "C:\Users\tiber\kDrive\Tiberio_DriverBackup"
+        Write-Log "Salvataggio driver avviato"
+
+        if (!(Test-Path $dest)) {
+            New-Item -ItemType Directory -Path $dest | Out-Null
+            Write-Log "Creata cartella: $dest"
+        }
+
+        Write-Log "Esportazione driver tramite pnputil..."
+        $output = pnputil /export-driver * "$dest" 2>&1
+        Write-Log "Output pnputil: $output"
+
+        $count = (Get-ChildItem -Path $dest -Recurse -ErrorAction SilentlyContinue).Count
+
+        if ($count -gt 0) {
+            Write-Log "Salvataggio driver completato ($count file)"
+            [System.Windows.MessageBox]::Show("Driver salvati in: $dest","Completato")
+        }
+        else {
+            Write-Log "Nessun driver esportato"
+            [System.Windows.MessageBox]::Show("Nessun driver esportato. Il sistema potrebbe usare driver DCH.","Avviso")
+        }
     }
     catch {
         Write-Log "Errore durante il salvataggio driver: $($_.Exception.Message)"
-        return $false
+        [System.Windows.MessageBox]::Show("Errore durante il salvataggio driver.","Errore")
     }
 }
 
