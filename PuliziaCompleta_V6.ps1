@@ -1,6 +1,6 @@
 # ============================
-#   TIBERIO EDITION V6.3 - FULL POWER
-#   VERSIONE FINALE CORRETTA
+#   TIBERIO EDITION V6.4 - PORTABLE MODE
+#   CODICE OTTIMIZZATO
 # ============================
 
 Add-Type -AssemblyName PresentationFramework
@@ -8,556 +8,470 @@ Add-Type -AssemblyName PresentationCore
 Add-Type -AssemblyName WindowsBase
 
 # ----------------------------
-#   VERSIONE + CHANGELOG + GITHUB
+#   VERSIONE + CHANGELOG
 # ----------------------------
 
-$VersioneLocale = "6.3.2"
+$VersioneLocale = "6.4.0"
 
 $ChangelogLocale = @"
-NOVITÀ VERSIONE 6.3 FULL POWER:
-- Aggiunta Pulizia Browser (Chrome, Edge, Firefox, Opera, Brave, Norton)
-- Aggiunta Pulizia USB migliorata
-- Aggiunto Salvataggio Driver (solo driver firmati)
-- Migliorata stabilità Auto-Update
-- Migliorato avvio sicuro (no crash dopo update)
-- Ottimizzazioni varie
+NOVITÀ VERSIONE 6.4:
+- Modalità PORTABLE (niente Program Files)
+- Barra di Progresso Reale
+- Codice ripulito e ottimizzato
 "@
 
-$UrlScriptRemoto = "https://raw.githubusercontent.com/M4r10685/TiberioEditionV6/refs/heads/main/PuliziaCompleta_V6.ps1"
-
-$ScriptPath = $MyInvocation.MyCommand.Path
-$BackupPath = "$ScriptPath.bak"
-
 # ----------------------------
-#   LOGGING AVANZATO
+#   PERCORSI PORTABLE
 # ----------------------------
 
-$Global:LogFile = "$PSScriptRoot\TiberioEdition.log"
+$BasePath = $PSScriptRoot
+
+# Log nella stessa cartella dello script
+$LogPath = Join-Path $BasePath "log.txt"
+if (!(Test-Path $LogPath)) {
+    New-Item -ItemType File -Path $LogPath -Force | Out-Null
+}
 
 function Write-Log {
-    param([string]$Message)
-
-    $timestamp = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
-    $formatted = "[$timestamp] $Message"
-
-    Write-Host $formatted
-
-    try {
-        Add-Content -Path $Global:LogFile -Value $formatted -Encoding UTF8
-    } catch {
-        Write-Host "[ERRORE LOG] Impossibile scrivere nel file log."
-    }
+    param([string]$msg)
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    Add-Content -Path $LogPath -Value "[$timestamp] $msg"
 }
 
-function Mostra-Popup {
-    param(
-        [string]$Titolo,
-        [string]$Messaggio
-    )
+Write-Log "Avvio Tiberio Edition V6.4 (Portable Mode)"
+
+# ----------------------------
+#   AUTO-UPDATE PORTABLE
+# ----------------------------
+
+# URL RAW del file V6.4 su GitHub
+$UrlScriptRemoto = "https://raw.githubusercontent.com/M4r10685/TiberioEditionV6/main/PuliziaCompleta_V6.4.ps1"
+
+function Controlla-Aggiornamenti {
     try {
-        [System.Windows.MessageBox]::Show($Messaggio, $Titolo, 'OK', 'Information') | Out-Null
-    } catch {
-        Write-Host "$Titolo - $Messaggio"
-    }
-}
+        Write-Log "Controllo aggiornamenti..."
 
-# ----------------------------
-#   AUTO-UPDATE GITHUB
-# ----------------------------
+        $contenutoRemoto = (Invoke-WebRequest -Uri $UrlScriptRemoto -UseBasicParsing -ErrorAction Stop).Content
 
-try {
-    Write-Log "Controllo aggiornamenti..."
+        $VersioneRemota = $null
+        if ($contenutoRemoto -match '\$VersioneLocale\s*=\s*"([^"]+)"') {
+            $VersioneRemota = $matches[1]
+        }
 
-    $RispostaRemota = Invoke-WebRequest -Uri $UrlScriptRemoto -UseBasicParsing -ErrorAction Stop
-    $TestoRemoto = $RispostaRemota.Content
+        if (-not $VersioneRemota) {
+            Write-Log "Impossibile leggere la versione remota."
+            [System.Windows.MessageBox]::Show(
+                "Impossibile determinare la versione remota dallo script.",
+                "Errore aggiornamenti",
+                "OK",
+                "Error"
+            ) | Out-Null
+            return
+        }
 
-    if ($TestoRemoto -match '\$VersioneLocale\s*=\s*"([^"]+)"') {
-        $VersioneRemota = $matches[1]
         Write-Log "Versione remota trovata: $VersioneRemota"
-    } else {
-        Write-Log "Impossibile determinare la versione remota."
-        return
-    }
 
-    if ($VersioneLocale -eq $VersioneRemota) {
-        Write-Log "Lo script è già aggiornato alla versione $VersioneLocale."
-    } else {
-        Write-Log "Nuova versione disponibile: $VersioneRemota (attuale: $VersioneLocale)"
-
-        $ChangelogRemoto = $null
-        if ($TestoRemoto -match '\$ChangelogLocale\s*=\s*@\"([\s\S]*?)\"@') {
-            $ChangelogRemoto = $matches[1].Trim()
+        if ($VersioneRemota -le $VersioneLocale) {
+            Write-Log "Lo script è già aggiornato alla versione $VersioneLocale."
+            [System.Windows.MessageBox]::Show(
+                "La versione locale ($VersioneLocale) è già aggiornata.",
+                "Controllo aggiornamenti",
+                "OK",
+                "Information"
+            ) | Out-Null
+            return
         }
 
-        $MessaggioUpdate = "È disponibile una nuova versione dello script.`n`nVersione attuale: $VersioneLocale`nNuova versione: $VersioneRemota"
-        if ($ChangelogRemoto) {
-            $MessaggioUpdate += "`n`nChangelog:`n$ChangelogRemoto"
+        # Aggiornamento disponibile
+        $msg = "È stata trovata una nuova versione: $VersioneRemota (locale: $VersioneLocale)." +
+               "`nVuoi aggiornare ora? Verrà creato un backup automatico."
+
+        $choice = [System.Windows.MessageBox]::Show(
+            $msg,
+            "Nuova versione disponibile",
+            "YesNo",
+            "Question"
+        )
+
+        if ($choice -ne "Yes") {
+            Write-Log "Utente ha annullato l'aggiornamento."
+            return
         }
 
-        Mostra-Popup -Titolo "Aggiornamento disponibile" -Messaggio $MessaggioUpdate
+        Write-Log "Utente ha confermato l'aggiornamento alla versione $VersioneRemota"
+
+        $ScriptPath = $MyInvocation.MyCommand.Source
+        $BackupPath = "$ScriptPath.bak"
 
         Copy-Item -Path $ScriptPath -Destination $BackupPath -Force
         Write-Log "Backup creato: $BackupPath"
 
-        Set-Content -Path $ScriptPath -Value $TestoRemoto -Force -Encoding UTF8
-        Write-Log "Script aggiornato alla versione $VersioneRemota."
+        Set-Content -Path $ScriptPath -Value $contenutoRemoto -Force -Encoding UTF8
+        Write-Log "Script aggiornato alla versione $VersioneRemota"
 
-        Mostra-Popup -Titolo "Aggiornamento completato" -Messaggio "Lo script verrà riavviato."
-        Write-Log "Riavvio dello script aggiornato..."
+        [System.Windows.MessageBox]::Show(
+            "Aggiornamento completato alla versione $VersioneRemota.`nLo script verrà riavviato.",
+            "Aggiornamento completato",
+            "OK",
+            "Information"
+        ) | Out-Null
 
-        Start-Sleep -Milliseconds 300
-        Start-Process powershell.exe -ArgumentList @("-NoProfile","-ExecutionPolicy","Bypass","-File","`"$ScriptPath`"")
+        Start-Process "powershell.exe" "-NoProfile -ExecutionPolicy Bypass -File `"$ScriptPath`""
+        Write-Log "Riavvio automatico dello script eseguito (da funzione Controlla-Aggiornamenti)"
         exit
     }
+    catch {
+        Write-Log "Errore durante il controllo/aggiornamento: $($_.Exception.Message)"
+        [System.Windows.MessageBox]::Show(
+            "Si è verificato un errore durante il controllo o l'installazione dell'aggiornamento.`nControlla il log per i dettagli.",
+            "Errore aggiornamenti",
+            "OK",
+            "Error"
+        ) | Out-Null
+    }
 }
-catch {
-    Write-Log "Errore durante il controllo aggiornamenti: $($_.Exception.Message)"
+# ============================
+#   PROGRESS BAR
+# ============================
+
+function Set-Progress {
+    param([int]$Value)
+
+    # Aggiorna la progress bar senza bloccare la GUI
+    $Window.Dispatcher.Invoke({
+        $ProgressBarOperazione.Value = $Value
+    })
 }
 
 # ============================
-#   FUNZIONI OPERATIVE V6.3 FULL POWER
+#   FUNZIONI OPERATIVE
 # ============================
-
-# ----------------------------
-#   CLEAN-PATH (FUNZIONE BASE)
-# ----------------------------
-
-function Clean-Path {
-    param(
-        [string]$Path,
-        [string]$Descrizione,
-        [switch]$OldOnly,
-        [int]$Days = 7
-    )
-
-    Write-Log "Pulizia: $Descrizione ($Path)"
-
-    if (!(Test-Path $Path)) { return 0 }
-
-    $freed = 0
-
-    try {
-        $items = Get-ChildItem -Path $Path -Recurse -Force -ErrorAction SilentlyContinue
-
-        foreach ($item in $items) {
-            if ($OldOnly) {
-                if ($item.LastWriteTime -lt (Get-Date).AddDays(-$Days)) {
-                    $freed += $item.Length
-                    Remove-Item $item.FullName -Force -Recurse -ErrorAction SilentlyContinue
-                }
-            } else {
-                $freed += $item.Length
-                Remove-Item $item.FullName -Force -Recurse -ErrorAction SilentlyContinue
-            }
-        }
-    } catch {}
-
-    return $freed
-}
-
-# ----------------------------
-#   PULIZIA BASE AVANZATA
-# ----------------------------
-
-function Pulizia-Base {
-    Write-Log "Esecuzione Pulizia-Base"
-    $tot = 0
-
-    $percorsi = @(
-        "$env:TEMP",
-        "$env:WINDIR\Temp",
-        "$env:WINDIR\SoftwareDistribution\Download",
-        "$env:WINDIR\Logs",
-        "$env:LOCALAPPDATA\CrashDumps",
-        "$env:WINDIR\Prefetch"
-    )
-
-    foreach ($p in $percorsi) {
-        $tot += Clean-Path -Path $p -Descrizione $p -OldOnly -Days 7
-    }
-
-    try { Clear-RecycleBin -Force -ErrorAction SilentlyContinue } catch {}
-
-    return $tot
-}
-
-# ----------------------------
-#   PULIZIA GAMING
-# ----------------------------
-
-function Pulizia-Gaming {
-    Write-Log "Esecuzione Pulizia-Gaming"
-    $tot = 0
-
-    $percorsiGaming = @(
-        "$env:LOCALAPPDATA\Temp",
-        "$env:LOCALAPPDATA\NVIDIA\DXCache",
-        "$env:LOCALAPPDATA\NVIDIA\GLCache",
-        "$env:LOCALAPPDATA\Microsoft\Windows\INetCache",
-        "$env:LOCALAPPDATA\CrashDumps"
-    )
-
-    foreach ($p in $percorsiGaming) {
-        $tot += Clean-Path -Path $p -Descrizione "Cache Gaming: $p" -OldOnly -Days 5
-    }
-
-    return $tot
-}
 
 # ----------------------------
 #   PULIZIA BROWSER
 # ----------------------------
-
 function Pulizia-Browser {
     Write-Log "Pulizia Browser avviata"
-    $tot = 0
+    Set-Progress 0
 
-    $percorsiBrowser = @(
+    $paths = @(
         "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Cache",
         "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Code Cache",
-
         "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Cache",
         "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Code Cache",
-
-        "$env:APPDATA\Mozilla\Firefox\Profiles",
-
-        "$env:LOCALAPPDATA\Opera Software\Opera Stable\Cache",
-
         "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\Default\Cache",
-        "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\Default\Code Cache",
-
-        "$env:LOCALAPPDATA\Norton\Norton Browser\User Data\Default\Cache",
-        "$env:LOCALAPPDATA\Norton\Norton Browser\User Data\Default\Code Cache"
+        "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\Default\Code Cache"
     )
 
-    foreach ($p in $percorsiBrowser) {
+    $step = 100 / $paths.Count
+    $current = 0
+    $freed = 0
+
+    foreach ($p in $paths) {
         if (Test-Path $p) {
-            $tot += Clean-Path -Path $p -Descrizione "Cache Browser: $p" -OldOnly -Days 3
+            $size = (Get-ChildItem -Path $p -Recurse -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum
+            Remove-Item -Path $p -Recurse -Force -ErrorAction SilentlyContinue
+            $freed += $size
         }
+
+        $current += $step
+        Set-Progress $current
     }
 
-    Write-Log "Pulizia Browser completata. Byte liberati: $tot"
-    return $tot
+    Set-Progress 100
+    Start-Sleep -Milliseconds 300
+    Set-Progress 0
+
+    Write-Log "Pulizia Browser completata. Byte liberati: $freed"
+    return $freed
 }
 
 # ----------------------------
 #   PULIZIA USB
 # ----------------------------
-
 function Pulizia-USB {
     Write-Log "Pulizia USB avviata"
-    $tot = 0
+    Set-Progress 0
 
-    $usbDrives = Get-Volume | Where-Object { $_.DriveType -eq 'Removable' -and $_.DriveLetter }
+    $drives = Get-PSDrive -PSProvider FileSystem |
+              Where-Object { $_.Root -match "^[A-Z]:\\" -and $_.Free -gt 0 }
 
-    foreach ($usb in $usbDrives) {
-        $path = "$($usb.DriveLetter):\"
-        Write-Log "USB rilevata: $path"
-
-        $percorsiUSB = @(
-            "$path*.tmp",
-            "$path*.log",
-            "$path*.bak",
-            "$pathSystem Volume Information",
-            "$path.Recycle.Bin"
-        )
-
-        foreach ($p in $percorsiUSB) {
-            try {
-                $items = Get-ChildItem -Path $p -Force -ErrorAction SilentlyContinue
-                foreach ($item in $items) {
-                    $tot += $item.Length
-                    Remove-Item $item.FullName -Force -Recurse -ErrorAction SilentlyContinue
-                }
-            } catch {}
-        }
+    if ($drives.Count -eq 0) {
+        Write-Log "Nessuna USB rilevata"
+        return 0
     }
 
-    Write-Log "Pulizia USB completata. Byte liberati: $tot"
-    return $tot
+    $step = 100 / $drives.Count
+    $current = 0
+    $freed = 0
+
+    foreach ($d in $drives) {
+        $patterns = "*.tmp","*.log","*.bak","*.old","*.chk"
+
+        foreach ($pat in $patterns) {
+            $files = Get-ChildItem -Path $d.Root -Filter $pat -Recurse -ErrorAction SilentlyContinue
+            foreach ($f in $files) {
+                $freed += $f.Length
+                Remove-Item $f.FullName -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        $current += $step
+        Set-Progress $current
+    }
+
+    Set-Progress 100
+    Start-Sleep -Milliseconds 300
+    Set-Progress 0
+
+    Write-Log "Pulizia USB completata. Byte liberati: $freed"
+    return $freed
 }
 
 # ----------------------------
 #   SALVATAGGIO DRIVER
 # ----------------------------
-
 function Salva-Driver {
     try {
-        $dest = "C:\Users\tiber\kDrive\Tiberio_DriverBackup"
         Write-Log "Salvataggio driver avviato"
+        Set-Progress 0
 
+        $dest = Join-Path $BasePath "DriverBackup"
         if (!(Test-Path $dest)) {
             New-Item -ItemType Directory -Path $dest | Out-Null
-            Write-Log "Creata cartella: $dest"
         }
+
+        Set-Progress 20
 
         Write-Log "Esportazione driver tramite pnputil..."
         $output = pnputil /export-driver * "$dest" 2>&1
-        Write-Log "Output pnputil: $output"
+
+        Set-Progress 80
 
         $count = (Get-ChildItem -Path $dest -Recurse -ErrorAction SilentlyContinue).Count
 
-        if ($count -gt 0) {
-            Write-Log "Salvataggio driver completato ($count file)"
-            [System.Windows.MessageBox]::Show("Driver salvati in: $dest","Completato")
-        }
-        else {
-            Write-Log "Nessun driver esportato"
-            [System.Windows.MessageBox]::Show("Nessun driver esportato. Il sistema potrebbe usare driver DCH.","Avviso")
-        }
+        Set-Progress 100
+        Start-Sleep -Milliseconds 300
+        Set-Progress 0
+
+        Write-Log "Salvataggio driver completato ($count file)"
+        return $true
     }
     catch {
         Write-Log "Errore durante il salvataggio driver: $($_.Exception.Message)"
-        [System.Windows.MessageBox]::Show("Errore durante il salvataggio driver.","Errore")
+        Set-Progress 0
+        return $false
     }
 }
 
 # ----------------------------
-#   MANUTENZIONE COMPLETA AVANZATA
+#   FUNZIONI DA OTTIMIZZARE (STUB)
 # ----------------------------
+
+function Pulizia-Base {
+    Write-Log "Pulizia Base avviata"
+    # Qui inseriremo la versione ottimizzata
+    return 0
+}
+
+function Pulizia-Gaming {
+    Write-Log "Pulizia Gaming avviata"
+    # Qui inseriremo la versione ottimizzata
+    return 0
+}
 
 function Manutenzione-Completa {
     Write-Log "Manutenzione Completa Avanzata avviata"
-
-    $tot = Pulizia-Base
-    Write-Log "Pulizia Base completata. Byte liberati: $tot"
-
-    $totGaming = Pulizia-Gaming
-    Write-Log "Pulizia Gaming completata. Byte liberati: $totGaming"
-
-    try {
-        Write-Log "Esecuzione TRIM SSD"
-        Optimize-Volume -DriveLetter C -ReTrim -ErrorAction SilentlyContinue | Out-Null
-    } catch {}
-
-    Write-Log "Manutenzione Completa Avanzata terminata"
+    # Qui inseriremo la versione ottimizzata
 }
-
-# ----------------------------
-#   RIPARAZIONE SISTEMA
-# ----------------------------
 
 function Ripara-Sistema {
     Write-Log "Riparazione Sistema avviata"
-
-    try {
-        Write-Log "Avvio DISM /ScanHealth"
-        Start-Process -FilePath "dism.exe" -ArgumentList "/Online","/Cleanup-Image","/ScanHealth" -WindowStyle Hidden
-    } catch {}
-
-    try {
-        Write-Log "Avvio SFC /SCANNOW"
-        Start-Process -FilePath "sfc.exe" -ArgumentList "/SCANNOW" -WindowStyle Hidden
-    } catch {}
-
-    Write-Log "Riparazione Sistema avviata (controlla log di sistema)"
+    # Qui inseriremo la versione ottimizzata
 }
-
-# ----------------------------
-#   GAMING BOOST BASE
-# ----------------------------
 
 function Gaming-Boost {
-    Write-Log "Gaming Boost V6.3 avviato"
-
-    try {
-        $proc = Get-Process -Name "eurotrucks2" -ErrorAction SilentlyContinue
-        if ($proc) {
-            $proc.PriorityClass = "AboveNormal"
-            Write-Log "Priorità CPU impostata a AboveNormal"
-        }
-    } catch {}
-
-    try {
-        Write-Log "Ottimizzazione rete base"
-        netsh int tcp set global autotuninglevel=normal | Out-Null
-        netsh int tcp set global rss=enabled | Out-Null
-        netsh int tcp set global chimney=default | Out-Null
-        netsh int tcp set heuristics disabled | Out-Null
-    } catch {}
-
-    Write-Log "Gaming Boost V6.3 completato"
+    Write-Log "Gaming Boost avviato"
+    # Qui inseriremo la versione ottimizzata
 }
-
-# ----------------------------
-#   GAMING BOOST PLUS
-# ----------------------------
 
 function Gaming-BoostPlus {
-    Write-Log "Gaming Boost PLUS V6.3 avviato"
-
-    try {
-        $proc = Get-Process -Name "eurotrucks2" -ErrorAction SilentlyContinue
-        if ($proc) {
-            $proc.PriorityClass = "High"
-            Write-Log "Priorità CPU impostata a High"
-        }
-    } catch {}
-
-    try {
-        Write-Log "Timer/Performance Threshold → 0"
-        powercfg -setacvalueindex scheme_current sub_processor PERFINCTHRESHOLD 0 | Out-Null
-        powercfg -setactive scheme_current | Out-Null
-    } catch {}
-
-    try {
-        Write-Log "Profilo energetico High Performance"
-        powercfg -setactive SCHEME_MIN | Out-Null
-    } catch {}
-
-    try {
-        Write-Log "Ottimizzazione rete avanzata"
-        netsh int tcp set global autotuninglevel=disabled | Out-Null
-        netsh int tcp set global rss=disabled | Out-Null
-        netsh int tcp set global chimney=disabled | Out-Null
-        netsh int tcp set heuristics disabled | Out-Null
-    } catch {}
-
-    try {
-        Write-Log "Disattivazione servizi non essenziali"
-        Stop-Service "SysMain" -Force -ErrorAction SilentlyContinue
-        Set-Service "SysMain" -StartupType Disabled -ErrorAction SilentlyContinue
-
-        Stop-Service "WSearch" -Force -ErrorAction SilentlyContinue
-        Set-Service "WSearch" -StartupType Disabled -ErrorAction SilentlyContinue
-
-        Stop-Service "DiagTrack" -Force -ErrorAction SilentlyContinue
-        Set-Service "DiagTrack" -StartupType Disabled -ErrorAction SilentlyContinue
-    } catch {}
-
-    try {
-        Write-Log "NetworkThrottlingIndex → 0xffffffff"
-        New-Item -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" -Force | Out-Null
-        Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" `
-            -Name "NetworkThrottlingIndex" -Value 0xffffffff -ErrorAction SilentlyContinue
-    } catch {}
-
-    Write-Log "Gaming Boost PLUS V6.3 completato"
+    Write-Log "Gaming Boost PLUS avviato"
+    # Qui inseriremo la versione ottimizzata
 }
-
-# ----------------------------
-#   RIPRISTINO COMPLETO
-# ----------------------------
-
-function Ripristino-Completo {
-    Write-Log "Ripristino completo avviato"
-
-    try {
-        Write-Log "Ripristino servizi"
-        Set-Service "SysMain" -StartupType Automatic -ErrorAction SilentlyContinue
-        Start-Service "SysMain" -ErrorAction SilentlyContinue
-
-        Set-Service "WSearch" -StartupType Automatic -ErrorAction SilentlyContinue
-        Start-Service "WSearch" -ErrorAction SilentlyContinue
-
-        Set-Service "DiagTrack" -StartupType Automatic -ErrorAction SilentlyContinue
-        Start-Service "DiagTrack" -ErrorAction SilentlyContinue
-    } catch {}
-
-    try {
-        Write-Log "Ripristino priorità CPU"
-        $proc = Get-Process -Name "explorer" -ErrorAction SilentlyContinue
-        if ($proc) { $proc.PriorityClass = "Normal" }
-    } catch {}
-
-    try {
-        Write-Log "Ripristino Performance Threshold → 50"
-        powercfg -setacvalueindex scheme_current sub_processor PERFINCTHRESHOLD 50 | Out-Null
-        powercfg -setactive scheme_current | Out-Null
-    } catch {}
-
-    try {
-        Write-Log "Ripristino rete TCP"
-        netsh int tcp set global autotuninglevel=normal | Out-Null
-        netsh int tcp set global rss=enabled | Out-Null
-        netsh int tcp set global chimney=default | Out-Null
-        netsh int tcp set heuristics enabled | Out-Null
-    } catch {}
-
-    try {
-        Write-Log "Ripristino NetworkThrottlingIndex → 10"
-        Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" `
-            -Name "NetworkThrottlingIndex" -Value 10 -ErrorAction SilentlyContinue
-    } catch {}
-
-    try {
-        Write-Log "Profilo energetico Bilanciato"
-        powercfg -setactive SCHEME_BALANCED | Out-Null
-    } catch {}
-
-    Write-Log "Ripristino completo terminato"
-}
-
-# ----------------------------
-#   OTTIMIZZAZIONE RETE AVANZATA
-# ----------------------------
 
 function Ottimizza-Rete {
-    Write-Log "Ottimizzazione rete avanzata avviata"
-
-    try {
-        netsh int tcp set global autotuninglevel=normal | Out-Null
-        netsh int tcp set global rss=enabled | Out-Null
-        netsh int tcp set global chimney=default | Out-Null
-        netsh int tcp set heuristics disabled | Out-Null
-    } catch {}
-
-    try {
-        Write-Log "SystemResponsiveness → 10"
-        New-Item -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" -Force | Out-Null
-        Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" `
-            -Name "SystemResponsiveness" -Value 10 -ErrorAction SilentlyContinue
-    } catch {}
-
-    Write-Log "Ottimizzazione rete avanzata completata"
+    Write-Log "Ottimizzazione rete avviata"
+    # Qui inseriremo la versione ottimizzata
 }
 
 # ============================
-#   AUTO-GAMING-BOOST (ETS2)
+#   PULIZIA BASE
 # ============================
+function Pulizia-Base {
+    Write-Log "Pulizia Base avviata"
+    Set-Progress 0
 
-$global:GamingBoostAttivo = $false
+    $paths = @(
+        "$env:TEMP\*",
+        "$env:WINDIR\Temp\*",
+        "$env:LOCALAPPDATA\Temp\*",
+        "$env:LOCALAPPDATA\CrashDumps\*",
+        "$env:LOCALAPPDATA\Microsoft\Windows\WebCache\*",
+        "$env:LOCALAPPDATA\Microsoft\Windows\INetCache\*"
+    )
 
-function Controlla-ETS2 {
-    $proc = Get-Process -Name "eurotrucks2" -ErrorAction SilentlyContinue
-    return $proc -ne $null
-}
+    $step = 100 / $paths.Count
+    $current = 0
+    $freed = 0
 
-$timer = New-Object System.Windows.Threading.DispatcherTimer
-$timer.Interval = [TimeSpan]::FromSeconds(5)
-
-$timer.Add_Tick({
-    if (Controlla-ETS2) {
-        if (-not $global:GamingBoostAttivo) {
-            Write-Log "ETS2 rilevato → Attivo Gaming Boost PLUS"
-            Gaming-BoostPlus
-            if ($TxtStatus) { $TxtStatus.Text = "Gaming Boost PLUS attivo (ETS2 rilevato)" }
-            $global:GamingBoostAttivo = $true
+    foreach ($p in $paths) {
+        if (Test-Path $p) {
+            $size = (Get-ChildItem -Path $p -Recurse -ErrorAction SilentlyContinue |
+                     Measure-Object -Property Length -Sum).Sum
+            Remove-Item -Path $p -Recurse -Force -ErrorAction SilentlyContinue
+            $freed += $size
         }
-    }
-    else {
-        if ($global:GamingBoostAttivo) {
-            Write-Log "ETS2 chiuso → Ripristino completo automatico"
-            Ripristino-Completo
-            if ($TxtStatus) { $TxtStatus.Text = "Ripristino completato (ETS2 chiuso)" }
-            $global:GamingBoostAttivo = $false
-        }
-    }
-})
 
-# ============================
-#   JOB DI PULIZIA INIZIALE
-# ============================
-
-$jobPulizia = {
-    try {
-        $tot = Pulizia-Base
-        Write-Log "Pulizia Base iniziale completata. Byte liberati: $tot"
-    } catch {
-        Write-Log "Errore durante la pulizia iniziale: $($_.Exception.Message)"
+        $current += $step
+        Set-Progress $current
     }
+
+    Set-Progress 100
+    Start-Sleep -Milliseconds 300
+    Set-Progress 0
+
+    Write-Log "Pulizia Base completata. Byte liberati: $freed"
+    return $freed
 }
 
+# ============================
+#   PULIZIA GAMING
+# ============================
+function Pulizia-Gaming {
+    Write-Log "Pulizia Gaming avviata"
+    Set-Progress 0
+
+    $paths = @(
+        "$env:LOCALAPPDATA\NVIDIA\DXCache\*",
+        "$env:LOCALAPPDATA\NVIDIA\GLCache\*",
+        "$env:LOCALAPPDATA\AMD\DxCache\*",
+        "$env:LOCALAPPDATA\Microsoft\DirectX Shader Cache\*",
+        "$env:LOCALAPPDATA\Temp\*.tmp"
+    )
+
+    $step = 100 / $paths.Count
+    $current = 0
+    $freed = 0
+
+    foreach ($p in $paths) {
+        if (Test-Path $p) {
+            $size = (Get-ChildItem -Path $p -Recurse -ErrorAction SilentlyContinue |
+                     Measure-Object -Property Length -Sum).Sum
+            Remove-Item -Path $p -Recurse -Force -ErrorAction SilentlyContinue
+            $freed += $size
+        }
+
+        $current += $step
+        Set-Progress $current
+    }
+
+    Set-Progress 100
+    Start-Sleep -Milliseconds 300
+    Set-Progress 0
+
+    Write-Log "Pulizia Gaming completata. Byte liberati: $freed"
+    return $freed
+}
+
+# ============================
+#   MANUTENZIONE COMPLETA AVANZATA
+# ============================
+function Manutenzione-Completa {
+    Write-Log "Manutenzione Completa Avanzata avviata"
+    Set-Progress 0
+
+    # Step 1: Pulizia Base
+    Pulizia-Base | Out-Null
+    Set-Progress 33
+
+    # Step 2: Pulizia Gaming
+    Pulizia-Gaming | Out-Null
+    Set-Progress 66
+
+    # Step 3: Pulizia Browser
+    Pulizia-Browser | Out-Null
+    Set-Progress 100
+
+    Start-Sleep -Milliseconds 300
+    Set-Progress 0
+
+    Write-Log "Manutenzione Completa Avanzata completata"
+}
+
+# ============================
+#   RIPARAZIONE SISTEMA
+# ============================
+function Ripara-Sistema {
+    Write-Log "Riparazione Sistema avviata"
+
+    Start-Process "powershell.exe" -ArgumentList "-Command sfc /scannow" -Verb RunAs
+    Start-Process "powershell.exe" -ArgumentList "-Command DISM /Online /Cleanup-Image /RestoreHealth" -Verb RunAs
+
+    Write-Log "Riparazione Sistema avviata (SFC + DISM)"
+}
+
+# ============================
+#   GAMING BOOST
+# ============================
+function Gaming-Boost {
+    Write-Log "Gaming Boost avviato"
+
+    # Disattiva servizi inutili
+    Stop-Service "SysMain" -Force -ErrorAction SilentlyContinue
+    Stop-Service "DiagTrack" -Force -ErrorAction SilentlyContinue
+
+    # Priorità alta per i giochi
+    Set-ItemProperty -Path "HKCU:\Software\Microsoft\GameBar" -Name "AllowAutoGameMode" -Value 1 -Force
+    Set-ItemProperty -Path "HKCU:\Software\Microsoft\GameBar" -Name "AutoGameModeEnabled" -Value 1 -Force
+
+    Write-Log "Gaming Boost completato"
+}
+
+# ============================
+#   GAMING BOOST PLUS
+# ============================
+function Gaming-BoostPlus {
+    Write-Log "Gaming Boost PLUS avviato"
+
+    # Include Gaming Boost base
+    Gaming-Boost
+
+    # Disattiva overlay
+    Set-ItemProperty -Path "HKCU:\Software\Microsoft\GameBar" -Name "ShowStartupPanel" -Value 0 -Force
+
+    # Disattiva Xbox Game Bar
+    Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\GameDVR" -Name "AppCaptureEnabled" -Value 0 -Force
+
+    Write-Log "Gaming Boost PLUS completato"
+}
+
+# ============================
+#   OTTIMIZZAZIONE RETE
+# ============================
+function Ottimizza-Rete {
+    Write-Log "Ottimizzazione rete avviata"
+
+    # TCP ottimizzato
+    netsh int tcp set global autotuninglevel=normal | Out-Null
+    netsh int tcp set global rss=enabled | Out-Null
+    netsh int tcp set global ecncapability=disabled | Out-Null
+
+    # Flush DNS
+    ipconfig /flushdns | Out-Null
+
+    Write-Log "Ottimizzazione rete completata"
+}
 # ============================
 #   GUI XAML
 # ============================
@@ -565,7 +479,7 @@ $jobPulizia = {
 [xml]$xaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Tiberio Edition V6.3 - Full Power" Height="480" Width="760"
+        Title="Tiberio Edition V6.4 - Portable Mode" Height="520" Width="760"
         WindowStartupLocation="CenterScreen"
         Background="#F3F3F3"
         ResizeMode="NoResize">
@@ -575,14 +489,17 @@ $jobPulizia = {
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Text="Pulizia Completa - Tiberio Edition V6.3 (Full Power)"
+        <!-- TITOLO -->
+        <TextBlock Text="Pulizia Completa - Tiberio Edition V6.4 (Portable + Progress Bar)"
                    FontSize="22"
                    FontWeight="Bold"
                    Foreground="#202020"
                    Margin="0,0,0,15"/>
 
+        <!-- CONTENUTO PRINCIPALE -->
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
@@ -617,39 +534,49 @@ $jobPulizia = {
             </StackPanel>
         </Grid>
 
-        <StatusBar Grid.Row="2" Margin="0,10,0,0">
+        <!-- PROGRESS BAR -->
+        <ProgressBar x:Name="ProgressBarOperazione"
+                     Grid.Row="2"
+                     Minimum="0" Maximum="100"
+                     Height="22"
+                     Margin="0,15,0,5"
+                     Value="0"/>
+
+        <!-- STATUS BAR -->
+        <StatusBar Grid.Row="3" Margin="0,10,0,0">
             <StatusBarItem>
                 <TextBlock x:Name="TxtStatus" Text="Pronto."/>
             </StatusBarItem>
         </StatusBar>
+
     </Grid>
 </Window>
 "@
-
 # ============================
 #   PARSING XAML
 # ============================
 
 $reader = New-Object System.Xml.XmlNodeReader $xaml
-$window = [Windows.Markup.XamlReader]::Load($reader)
+$Window = [Windows.Markup.XamlReader]::Load($reader)
 
 # ============================
 #   RIFERIMENTI CONTROLLI
 # ============================
 
-$BtnPuliziaBase            = $window.FindName("BtnPuliziaBase")
-$BtnPuliziaGaming          = $window.FindName("BtnPuliziaGaming")
-$BtnPuliziaBrowser         = $window.FindName("BtnPuliziaBrowser")
-$BtnPuliziaUSB             = $window.FindName("BtnPuliziaUSB")
-$BtnSalvaDriver            = $window.FindName("BtnSalvaDriver")
-$BtnManutenzioneCompleta   = $window.FindName("BtnManutenzioneCompleta")
-$BtnRiparazioneSistema     = $window.FindName("BtnRiparazioneSistema")
-$BtnGamingBoost            = $window.FindName("BtnGamingBoost")
-$BtnGamingBoostPlus        = $window.FindName("BtnGamingBoostPlus")
-$BtnOttimizzaRete          = $window.FindName("BtnOttimizzaRete")
-$BtnControllaAggiornamenti = $window.FindName("BtnControllaAggiornamenti")
-$BtnEsci                   = $window.FindName("BtnEsci")
-$TxtStatus                 = $window.FindName("TxtStatus")
+$BtnPuliziaBase            = $Window.FindName("BtnPuliziaBase")
+$BtnPuliziaGaming          = $Window.FindName("BtnPuliziaGaming")
+$BtnPuliziaBrowser         = $Window.FindName("BtnPuliziaBrowser")
+$BtnPuliziaUSB             = $Window.FindName("BtnPuliziaUSB")
+$BtnSalvaDriver            = $Window.FindName("BtnSalvaDriver")
+$BtnManutenzioneCompleta   = $Window.FindName("BtnManutenzioneCompleta")
+$BtnRiparazioneSistema     = $Window.FindName("BtnRiparazioneSistema")
+$BtnGamingBoost            = $Window.FindName("BtnGamingBoost")
+$BtnGamingBoostPlus        = $Window.FindName("BtnGamingBoostPlus")
+$BtnOttimizzaRete          = $Window.FindName("BtnOttimizzaRete")
+$BtnControllaAggiornamenti = $Window.FindName("BtnControllaAggiornamenti")
+$BtnEsci                   = $Window.FindName("BtnEsci")
+$TxtStatus                 = $Window.FindName("TxtStatus")
+$ProgressBarOperazione     = $Window.FindName("ProgressBarOperazione")
 
 # ============================
 #   HANDLER PULSANTI
@@ -736,117 +663,18 @@ $BtnOttimizzaRete.Add_Click({
 $BtnControllaAggiornamenti.Add_Click({
     $TxtStatus.Text = "Controllo aggiornamenti..."
     Write-Log "Avvio controllo aggiornamenti (da GUI)"
-
-    $risultato = $null
-    try {
-        $RispostaRemota = Invoke-WebRequest -Uri $UrlScriptRemoto -UseBasicParsing -ErrorAction Stop
-        $TestoRemoto = $RispostaRemota.Content
-        $risultato = $TestoRemoto
-    } catch {
-        $risultato = $null
-    }
-
-    if (-not $risultato) {
-        $TxtStatus.Text = "Errore durante il controllo aggiornamenti."
-        [System.Windows.MessageBox]::Show(
-            "Si è verificato un errore durante il controllo degli aggiornamenti. Controlla il log per i dettagli.",
-            "Errore aggiornamenti",
-            "OK",
-            "Error"
-        ) | Out-Null
-        return
-    }
-
-    if ($risultato -match '\$VersioneLocale\s*=\s*"([^"]+)"') {
-        $VersioneRemotaGUI = $matches[1]
-    } else {
-        $TxtStatus.Text = "Impossibile leggere la versione remota."
-        [System.Windows.MessageBox]::Show(
-            "Impossibile determinare la versione remota dallo script.",
-            "Errore aggiornamenti",
-            "OK",
-            "Error"
-        ) | Out-Null
-        return
-    }
-
-    if ($VersioneRemotaGUI -eq $VersioneLocale) {
-        $TxtStatus.Text = "La versione è già aggiornata."
-        [System.Windows.MessageBox]::Show(
-            "La versione locale ($VersioneLocale) è già aggiornata.",
-            "Controllo aggiornamenti",
-            "OK",
-            "Information"
-        ) | Out-Null
-    }
-    else {
-        $msg = "È stata trovata una nuova versione: $VersioneRemotaGUI (locale: $VersioneLocale)." +
-               "`nVuoi aggiornare ora? Verrà creato un backup automatico."
-
-        $choice = [System.Windows.MessageBox]::Show(
-            $msg,
-            "Nuova versione disponibile",
-            "YesNo",
-            "Question"
-        )
-
-        if ($choice -eq "Yes") {
-            Write-Log "Utente ha confermato l'aggiornamento alla versione $VersioneRemotaGUI"
-            $PercorsoLocale = $ScriptPath
-
-            try {
-                Copy-Item -Path $PercorsoLocale -Destination $BackupPath -Force
-                Write-Log "Backup creato: $BackupPath"
-
-                Set-Content -Path $PercorsoLocale -Value $risultato -Force -Encoding UTF8
-                Write-Log "Aggiornamento da GUI completato con successo"
-
-                $TxtStatus.Text = "Aggiornamento completato. Riavvio dello script..."
-                [System.Windows.MessageBox]::Show(
-                    "Aggiornamento completato con successo alla versione $VersioneRemotaGUI." +
-                    "`nLo script verrà riavviato.",
-                    "Aggiornamento completato",
-                    "OK",
-                    "Information"
-                ) | Out-Null
-
-                Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass -File `"$PercorsoLocale`""
-                Write-Log "Riavvio automatico dello script eseguito (da GUI)"
-                $window.Close()
-            } catch {
-                Write-Log "Errore durante l'aggiornamento da GUI: $($_.Exception.Message)"
-                $TxtStatus.Text = "Errore durante l'aggiornamento."
-                [System.Windows.MessageBox]::Show(
-                    "Si è verificato un errore durante l'aggiornamento. Controlla il log per i dettagli.",
-                    "Errore aggiornamento",
-                    "Error",
-                    "OK"
-                ) | Out-Null
-            }
-        }
-        else {
-            Write-Log "Utente ha annullato l'aggiornamento da GUI"
-            $TxtStatus.Text = "Aggiornamento annullato dall'utente."
-        }
-    }
+    Controlla-Aggiornamenti
 })
 
 $BtnEsci.Add_Click({
     Write-Log "Chiusura applicazione da GUI"
-    $window.Close()
+    $Window.Close()
 })
 
 # ============================
 #   MOSTRA LA GUI
 # ============================
 
-Write-Log "DEBUG: Sto per mostrare la GUI"
-$window.ShowDialog() | Out-Null
-Write-Log "DEBUG: GUI chiusa o non avviata"
-
-# ============================
-#   AVVIO TIMER E JOB (POST-GUI)
-# ============================
-
-$timer.Start()
-Start-Job -ScriptBlock $jobPulizia | Out-Null
+Write-Log "Avvio GUI"
+$Window.ShowDialog() | Out-Null
+Write-Log "GUI chiusa"
