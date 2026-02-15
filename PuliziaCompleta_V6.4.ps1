@@ -337,6 +337,17 @@ function Pulizia-Base {
         Set-Progress $current
     }
 
+    # ⭐ SVUOTAMENTO CESTINO (aggiunto)
+    try {
+        Write-Log "Svuotamento cestino..."
+        (New-Object -ComObject Shell.Application).NameSpace(0xA).Items() |
+            ForEach-Object { $_.InvokeVerb("delete") }
+        Write-Log "Cestino svuotato."
+    }
+    catch {
+        Write-Log "Errore durante lo svuotamento del cestino: $($_.Exception.Message)"
+    }
+
     Set-Progress 100
     Start-Sleep -Milliseconds 300
     Set-Progress 0
@@ -344,6 +355,9 @@ function Pulizia-Base {
     Write-Log "Pulizia Base completata. Byte liberati: $freed"
     return $freed
 }
+
+
+
 
 # ============================
 #   PULIZIA GAMING
@@ -439,39 +453,155 @@ function Gaming-Boost {
 }
 
 # ============================
-#   GAMING BOOST PLUS
+#   GAME BOOST PLUS ULTRA
+#   Solo ETS2 + TruckersMP
 # ============================
-function Gaming-BoostPlus {
-    Write-Log "Gaming Boost PLUS avviato"
+function GameBoost-Plus {
 
-    # Include Gaming Boost base
-    Gaming-Boost
+    Write-Log "GameBoost Plus Ultra avviato. In attesa di ETS2 o TruckersMP..."
 
-    # Disattiva overlay
-    Set-ItemProperty -Path "HKCU:\Software\Microsoft\GameBar" -Name "ShowStartupPanel" -Value 0 -Force
+    # Processi da chiudere (Steam e Discord NON vengono toccati)
+    $processiDaChiudere = @(
+        "chrome","msedge","opera","firefox",
+        "onedrive","steamwebhelper","epicgameslauncher",
+        "battle.net","spotify","origin","uplay","goggalaxy"
+    )
 
-    # Disattiva Xbox Game Bar
-    Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\GameDVR" -Name "AppCaptureEnabled" -Value 0 -Force
+    # Notifiche toast
+    try {
+        $null = [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime]
+    } catch {}
 
-    Write-Log "Gaming Boost PLUS completato"
-}
+    function Show-Toast($title, $msg) {
+        try {
+            $template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02)
+            $toastText = $template.GetElementsByTagName("text")
+            $toastText.Item(0).AppendChild($template.CreateTextNode($title)) | Out-Null
+            $toastText.Item(1).AppendChild($template.CreateTextNode($msg)) | Out-Null
+            $toast = [Windows.UI.Notifications.ToastNotification]::new($template)
+            $notifier = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("TiberioEdition")
+            $notifier.Show($toast)
+        } catch {}
+    }
 
-# ============================
-#   OTTIMIZZAZIONE RETE
-# ============================
-function Ottimizza-Rete {
-    Write-Log "Ottimizzazione rete avviata"
+    # Attesa avvio ETS2 o TMP
+    while (
+        -not (Get-Process -Name "eurotrucks2" -ErrorAction SilentlyContinue) -and
+        -not (Get-Process -Name "truckersmp-launcher" -ErrorAction SilentlyContinue) -and
+        -not (Get-Process -Name "truckersmp-cli" -ErrorAction SilentlyContinue)
+    ) {
+        Start-Sleep -Seconds 2
+    }
 
-    # TCP ottimizzato
-    netsh int tcp set global autotuninglevel=normal | Out-Null
+    Write-Log "Gioco rilevato. Attivazione GameBoost Plus Ultra..."
+    Show-Toast "GameBoost Plus Ultra" "Ottimizzazioni attive per ETS2/TMP"
+
+    # ============================
+    #   CHIUSURA PROCESSI INUTILI
+    # ============================
+    foreach ($p in $processiDaChiudere) {
+        try {
+            Get-Process -Name $p -ErrorAction SilentlyContinue | Stop-Process -Force
+            Write-Log "Processo chiuso: $p"
+        } catch {}
+    }
+
+    # ============================
+    #   PULIZIA CACHE TRUCKERSMP
+    # ============================
+    Pulizia-TMP
+
+    # ============================
+    #   OTTIMIZZAZIONE CONFIG ETS2
+    # ============================
+    Ottimizza-ETS2-Config
+
+    # ============================
+    #   OTTIMIZZAZIONE CONVOY
+    # ============================
+    Ottimizza-Convoy
+
+    # ============================
+    #   LIMITATORE FPS DINAMICO
+    # ============================
+    FPS-Dinamico
+
+    # ============================
+    #   BOOST GPU
+    # ============================
+    Boost-GPU
+
+    # ============================
+    #   OTTIMIZZAZIONI RETE
+    # ============================
+    Write-Log "Applicazione ottimizzazioni rete..."
+
+    netsh int tcp set global autotuninglevel=disabled | Out-Null
     netsh int tcp set global rss=enabled | Out-Null
     netsh int tcp set global ecncapability=disabled | Out-Null
+    netsh int tcp set global timestamps=disabled | Out-Null
 
-    # Flush DNS
+    # Nagle OFF
+    New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces" -Name "TcpAckFrequency" -Value 1 -PropertyType DWord -Force | Out-Null
+    New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces" -Name "TCPNoDelay" -Value 1 -PropertyType DWord -Force | Out-Null
+
+    # Flush DNS e ARP
     ipconfig /flushdns | Out-Null
+    netsh interface ip delete arpcache | Out-Null
 
-    Write-Log "Ottimizzazione rete completata"
+    Write-Log "Ottimizzazioni rete applicate."
+
+    # ============================
+    #   PRIORITÀ CPU/GPU
+    # ============================
+    Write-Log "Impostazione priorità CPU/GPU..."
+
+    try {
+        $proc = Get-Process -Name "eurotrucks2" -ErrorAction SilentlyContinue
+        if ($proc) { $proc.PriorityClass = "High" }
+
+        Get-Process -Name "nvcontainer","amddriver","amdow" -ErrorAction SilentlyContinue |
+            ForEach-Object { $_.PriorityClass = "High" }
+
+        Write-Log "Priorità impostate."
+    } catch {}
+
+    # ============================
+    #   OTTIMIZZAZIONI RAM
+    # ============================
+    Write-Log "Ottimizzazioni RAM..."
+
+    Get-Process | ForEach-Object {
+        try { $_.MinWorkingSet = $_.MinWorkingSet } catch {}
+    }
+
+    Write-Log "Ottimizzazioni RAM applicate."
+
+    # ============================
+    #   ATTESA CHIUSURA GIOCO
+    # ============================
+    while (
+        Get-Process -Name "eurotrucks2" -ErrorAction SilentlyContinue -or
+        Get-Process -Name "truckersmp-launcher" -ErrorAction SilentlyContinue -or
+        Get-Process -Name "truckersmp-cli" -ErrorAction SilentlyContinue
+    ) {
+        Start-Sleep -Seconds 2
+    }
+
+    # ============================
+    #   RIPRISTINO
+    # ============================
+    Write-Log "Gioco chiuso. Ripristino impostazioni..."
+    Show-Toast "GameBoost Plus Ultra" "Ripristino impostazioni..."
+
+    netsh int tcp set global autotuninglevel=normal | Out-Null
+    netsh int tcp set global rss=enabled | Out-Null
+    netsh int tcp set global ecncapability=default | Out-Null
+    netsh int tcp set global timestamps=default | Out-Null
+
+    Write-Log "Ripristino completato."
 }
+
 # ============================
 #   GUI XAML
 # ============================
@@ -485,11 +615,13 @@ function Ottimizza-Rete {
         ResizeMode="NoResize">
 
     <Grid Margin="20">
+
+        <!-- DEFINIZIONE RIGHE -->
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>   <!-- Titolo -->
+            <RowDefinition Height="Auto"/>   <!-- Contenuto -->
+            <RowDefinition Height="Auto"/>   <!-- Progress Bar -->
+            <RowDefinition Height="Auto"/>   <!-- Status Bar -->
         </Grid.RowDefinitions>
 
         <!-- TITOLO -->
@@ -508,27 +640,27 @@ function Ottimizza-Rete {
 
             <!-- COLONNA SINISTRA -->
             <StackPanel Grid.Column="0" Margin="0,0,10,0">
-                <TextBlock Text="Manutenzione" FontWeight="Bold" Margin="0,0,0,8"/>
+                <TextBlock Text="Manutenzione" FontWeight="Bold" Margin="0,0,0,10"/>
 
-                <Button x:Name="BtnPuliziaBase" Content="Pulizia Base" Height="32" Margin="0,0,0,6"/>
-                <Button x:Name="BtnPuliziaGaming" Content="Pulizia Gaming" Height="32" Margin="0,0,0,6"/>
-                <Button x:Name="BtnPuliziaBrowser" Content="Pulizia Browser" Height="32" Margin="0,0,0,6"/>
-                <Button x:Name="BtnPuliziaUSB" Content="Pulizia USB" Height="32" Margin="0,0,0,6"/>
-                <Button x:Name="BtnSalvaDriver" Content="Salva Driver" Height="32" Margin="0,0,0,6"/>
+                <Button x:Name="BtnPuliziaBase" Content="Pulizia Base" Height="32" Margin="0,0,0,8"/>
+                <Button x:Name="BtnPuliziaGaming" Content="Pulizia Gaming" Height="32" Margin="0,0,0,8"/>
+                <Button x:Name="BtnPuliziaBrowser" Content="Pulizia Browser" Height="32" Margin="0,0,0,8"/>
+                <Button x:Name="BtnPuliziaUSB" Content="Pulizia USB" Height="32" Margin="0,0,0,8"/>
+                <Button x:Name="BtnSalvaDriver" Content="Salva Driver" Height="32" Margin="0,0,0,8"/>
 
-                <Button x:Name="BtnManutenzioneCompleta" Content="Manutenzione Completa Avanzata" Height="32" Margin="0,10,0,6"/>
-                <Button x:Name="BtnRiparazioneSistema" Content="Riparazione Sistema" Height="32" Margin="0,0,0,6"/>
+                <Button x:Name="BtnManutenzioneCompleta" Content="Manutenzione Completa Avanzata" Height="32" Margin="0,10,0,8"/>
+                <Button x:Name="BtnRiparazioneSistema" Content="Riparazione Sistema" Height="32" Margin="0,0,0,8"/>
 
                 <Button x:Name="BtnControllaAggiornamenti" Content="Controlla Aggiornamenti" Height="32" Margin="0,10,0,0"/>
             </StackPanel>
 
             <!-- COLONNA DESTRA -->
             <StackPanel Grid.Column="1" Margin="10,0,0,0">
-                <TextBlock Text="Gaming" FontWeight="Bold" Margin="0,0,0,8"/>
+                <TextBlock Text="Gaming" FontWeight="Bold" Margin="0,0,0,10"/>
 
-                <Button x:Name="BtnGamingBoost" Content="Gaming Boost" Height="32" Margin="0,0,0,6"/>
-                <Button x:Name="BtnGamingBoostPlus" Content="Gaming Boost PLUS" Height="32" Margin="0,0,0,6"/>
-                <Button x:Name="BtnOttimizzaRete" Content="Ottimizzazione Rete" Height="32" Margin="0,0,0,6"/>
+                <Button x:Name="BtnGamingBoost" Content="Gaming Boost" Height="32" Margin="0,0,0,8"/>
+                <Button x:Name="BtnGamingBoostPlus" Content="Gaming Boost PLUS" Height="32" Margin="0,0,0,8"/>
+                <Button x:Name="BtnOttimizzaRete" Content="Ottimizzazione Rete" Height="32" Margin="0,0,0,8"/>
 
                 <Button x:Name="BtnEsci" Content="Esci" Height="32" Margin="0,20,0,0"/>
             </StackPanel>
@@ -649,7 +781,9 @@ $BtnGamingBoost.Add_Click({
 $BtnGamingBoostPlus.Add_Click({
     $TxtStatus.Text = "Gaming Boost PLUS in corso..."
     Write-Log "Avvio Gaming Boost PLUS (da GUI)"
-    Gaming-BoostPlus
+
+    GameBoost-Plus   # <-- IL NUOVO MODULO ULTRA
+
     $TxtStatus.Text = "Gaming Boost PLUS completato."
 })
 
