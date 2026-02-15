@@ -47,6 +47,9 @@ Write-Log "Avvio Tiberio Edition V6.4 (Portable Mode)"
 # URL RAW del file V6.4 su GitHub
 $UrlScriptRemoto = "https://raw.githubusercontent.com/M4r10685/TiberioEditionV6/main/PuliziaCompleta_V6.4.ps1"
 
+# ============================
+#   CONTROLLO AGGIORNAMENTI
+# ============================
 function Controlla-Aggiornamenti {
     try {
         Write-Log "Controllo aggiornamenti..."
@@ -157,23 +160,17 @@ function Controlla-Aggiornamenti {
 # ============================
 #   PROGRESS BAR
 # ============================
-
 function Set-Progress {
     param([int]$Value)
 
-    # Aggiorna la progress bar senza bloccare la GUI
     $Window.Dispatcher.Invoke({
         $ProgressBarOperazione.Value = $Value
     })
 }
 
 # ============================
-#   FUNZIONI OPERATIVE
-# ============================
-
-# ----------------------------
 #   PULIZIA BROWSER
-# ----------------------------
+# ============================
 function Pulizia-Browser {
     Write-Log "Pulizia Browser avviata"
     Set-Progress 0
@@ -193,7 +190,8 @@ function Pulizia-Browser {
 
     foreach ($p in $paths) {
         if (Test-Path $p) {
-            $size = (Get-ChildItem -Path $p -Recurse -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum
+            $size = (Get-ChildItem -Path $p -Recurse -ErrorAction SilentlyContinue |
+                     Measure-Object -Property Length -Sum).Sum
             Remove-Item -Path $p -Recurse -Force -ErrorAction SilentlyContinue
             $freed += $size
         }
@@ -210,9 +208,9 @@ function Pulizia-Browser {
     return $freed
 }
 
-# ----------------------------
+# ============================
 #   PULIZIA USB
-# ----------------------------
+# ============================
 function Pulizia-USB {
     Write-Log "Pulizia USB avviata"
     Set-Progress 0
@@ -252,9 +250,9 @@ function Pulizia-USB {
     return $freed
 }
 
-# ----------------------------
+# ============================
 #   SALVATAGGIO DRIVER
-# ----------------------------
+# ============================
 function Salva-Driver {
     try {
         Write-Log "Salvataggio driver avviato"
@@ -286,47 +284,6 @@ function Salva-Driver {
         Set-Progress 0
         return $false
     }
-}
-
-# ----------------------------
-#   FUNZIONI DA OTTIMIZZARE (STUB)
-# ----------------------------
-
-function Pulizia-Base {
-    Write-Log "Pulizia Base avviata"
-    # Qui inseriremo la versione ottimizzata
-    return 0
-}
-
-function Pulizia-Gaming {
-    Write-Log "Pulizia Gaming avviata"
-    # Qui inseriremo la versione ottimizzata
-    return 0
-}
-
-function Manutenzione-Completa {
-    Write-Log "Manutenzione Completa Avanzata avviata"
-    # Qui inseriremo la versione ottimizzata
-}
-
-function Ripara-Sistema {
-    Write-Log "Riparazione Sistema avviata"
-    # Qui inseriremo la versione ottimizzata
-}
-
-function Gaming-Boost {
-    Write-Log "Gaming Boost avviato"
-    # Qui inseriremo la versione ottimizzata
-}
-
-function Gaming-BoostPlus {
-    Write-Log "Gaming Boost PLUS avviato"
-    # Qui inseriremo la versione ottimizzata
-}
-
-function Ottimizza-Rete {
-    Write-Log "Ottimizzazione rete avviata"
-    # Qui inseriremo la versione ottimizzata
 }
 
 # ============================
@@ -361,7 +318,7 @@ function Pulizia-Base {
         Set-Progress $current
     }
 
-    # ⭐ SVUOTAMENTO CESTINO (aggiunto)
+    # Svuotamento cestino
     try {
         Write-Log "Svuotamento cestino..."
         (New-Object -ComObject Shell.Application).NameSpace(0xA).Items() |
@@ -379,9 +336,6 @@ function Pulizia-Base {
     Write-Log "Pulizia Base completata. Byte liberati: $freed"
     return $freed
 }
-
-
-
 
 # ============================
 #   PULIZIA GAMING
@@ -429,15 +383,12 @@ function Manutenzione-Completa {
     Write-Log "Manutenzione Completa Avanzata avviata"
     Set-Progress 0
 
-    # Step 1: Pulizia Base
-    Pulizia-Base | Out-Null
+    Pulizia-Base   | Out-Null
     Set-Progress 33
 
-    # Step 2: Pulizia Gaming
     Pulizia-Gaming | Out-Null
     Set-Progress 66
 
-    # Step 3: Pulizia Browser
     Pulizia-Browser | Out-Null
     Set-Progress 100
 
@@ -465,11 +416,9 @@ function Ripara-Sistema {
 function Gaming-Boost {
     Write-Log "Gaming Boost avviato"
 
-    # Disattiva servizi inutili
     Stop-Service "SysMain" -Force -ErrorAction SilentlyContinue
     Stop-Service "DiagTrack" -Force -ErrorAction SilentlyContinue
 
-    # Priorità alta per i giochi
     Set-ItemProperty -Path "HKCU:\Software\Microsoft\GameBar" -Name "AllowAutoGameMode" -Value 1 -Force
     Set-ItemProperty -Path "HKCU:\Software\Microsoft\GameBar" -Name "AutoGameModeEnabled" -Value 1 -Force
 
@@ -478,51 +427,45 @@ function Gaming-Boost {
 
 # ============================
 #   GAME BOOST PLUS ULTRA
-#   Solo ETS2 + TruckersMP
 # ============================
 function GameBoost-Plus {
 
     Write-Log "GameBoost Plus Ultra avviato. In attesa di ETS2 o TruckersMP..."
 
-    # Processi da chiudere (Steam e Discord NON vengono toccati)
     $processiDaChiudere = @(
         "chrome","msedge","opera","firefox",
         "onedrive","steamwebhelper","epicgameslauncher",
         "battle.net","spotify","origin","uplay","goggalaxy"
     )
 
-    # Notifiche toast
     try {
         $null = [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime]
     } catch {}
 
     function Show-Toast($title, $msg) {
         try {
-            $template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02)
+            $template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent(
+                [Windows.UI.Notifications.ToastTemplateType]::ToastText02
+            )
             $toastText = $template.GetElementsByTagName("text")
             $toastText.Item(0).AppendChild($template.CreateTextNode($title)) | Out-Null
-            $toastText.Item(1).AppendChild($template.CreateTextNode($msg)) | Out-Null
+            $toastText.Item(1).AppendChild($template.CreateTextNode($msg))   | Out-Null
             $toast = [Windows.UI.Notifications.ToastNotification]::new($template)
             $notifier = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("TiberioEdition")
             $notifier.Show($toast)
         } catch {}
     }
 
-    # Attesa avvio ETS2 o TMP
-    while (
-        -not (Get-Process -Name "eurotrucks2" -ErrorAction SilentlyContinue) -and
-        -not (Get-Process -Name "truckersmp-launcher" -ErrorAction SilentlyContinue) -and
-        -not (Get-Process -Name "truckersmp-cli" -ErrorAction SilentlyContinue)
-    ) {
+    # Attesa avvio ETS2 o TMP (condizione su una sola riga per evitare problemi di parsing)
+    while (-not (Get-Process -Name "eurotrucks2" -ErrorAction SilentlyContinue) -and
+           -not (Get-Process -Name "truckersmp-launcher" -ErrorAction SilentlyContinue) -and
+           -not (Get-Process -Name "truckersmp-cli" -ErrorAction SilentlyContinue)) {
         Start-Sleep -Seconds 2
     }
 
     Write-Log "Gioco rilevato. Attivazione GameBoost Plus Ultra..."
     Show-Toast "GameBoost Plus Ultra" "Ottimizzazioni attive per ETS2/TMP"
 
-    # ============================
-    #   CHIUSURA PROCESSI INUTILI
-    # ============================
     foreach ($p in $processiDaChiudere) {
         try {
             Get-Process -Name $p -ErrorAction SilentlyContinue | Stop-Process -Force
@@ -530,56 +473,28 @@ function GameBoost-Plus {
         } catch {}
     }
 
-    # ============================
-    #   PULIZIA CACHE TRUCKERSMP
-    # ============================
     Pulizia-TMP
-
-    # ============================
-    #   OTTIMIZZAZIONE CONFIG ETS2
-    # ============================
     Ottimizza-ETS2-Config
-
-    # ============================
-    #   OTTIMIZZAZIONE CONVOY
-    # ============================
     Ottimizza-Convoy
-
-    # ============================
-    #   LIMITATORE FPS DINAMICO
-    # ============================
     FPS-Dinamico
-
-    # ============================
-    #   BOOST GPU
-    # ============================
     Boost-GPU
 
-    # ============================
-    #   OTTIMIZZAZIONI RETE
-    # ============================
     Write-Log "Applicazione ottimizzazioni rete..."
 
     netsh int tcp set global autotuninglevel=disabled | Out-Null
-    netsh int tcp set global rss=enabled | Out-Null
-    netsh int tcp set global ecncapability=disabled | Out-Null
-    netsh int tcp set global timestamps=disabled | Out-Null
+    netsh int tcp set global rss=enabled             | Out-Null
+    netsh int tcp set global ecncapability=disabled  | Out-Null
+    netsh int tcp set global timestamps=disabled     | Out-Null
 
-    # Nagle OFF
     New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces" -Name "TcpAckFrequency" -Value 1 -PropertyType DWord -Force | Out-Null
-    New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces" -Name "TCPNoDelay" -Value 1 -PropertyType DWord -Force | Out-Null
+    New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces" -Name "TCPNoDelay"      -Value 1 -PropertyType DWord -Force | Out-Null
 
-    # Flush DNS e ARP
-    ipconfig /flushdns | Out-Null
-    netsh interface ip delete arpcache | Out-Null
+    ipconfig /flushdns                        | Out-Null
+    netsh interface ip delete arpcache        | Out-Null
 
     Write-Log "Ottimizzazioni rete applicate."
 
-    # ============================
-    #   PRIORITÀ CPU/GPU
-    # ============================
     Write-Log "Impostazione priorità CPU/GPU..."
-
     try {
         $proc = Get-Process -Name "eurotrucks2" -ErrorAction SilentlyContinue
         if ($proc) { $proc.PriorityClass = "High" }
@@ -590,46 +505,40 @@ function GameBoost-Plus {
         Write-Log "Priorità impostate."
     } catch {}
 
-    # ============================
-    #   OTTIMIZZAZIONI RAM
-    # ============================
     Write-Log "Ottimizzazioni RAM..."
-
     Get-Process | ForEach-Object {
         try { $_.MinWorkingSet = $_.MinWorkingSet } catch {}
     }
-
     Write-Log "Ottimizzazioni RAM applicate."
 
-    # ============================
-    #   ATTESA CHIUSURA GIOCO
-    # ============================
-    while (
-        Get-Process -Name "eurotrucks2" -ErrorAction SilentlyContinue -or
-        Get-Process -Name "truckersmp-launcher" -ErrorAction SilentlyContinue -or
-        Get-Process -Name "truckersmp-cli" -ErrorAction SilentlyContinue
-    ) {
+    while (Get-Process -Name "eurotrucks2" -ErrorAction SilentlyContinue -or
+           Get-Process -Name "truckersmp-launcher" -ErrorAction SilentlyContinue -or
+           Get-Process -Name "truckersmp-cli" -ErrorAction SilentlyContinue) {
         Start-Sleep -Seconds 2
     }
 
-    # ============================
-    #   RIPRISTINO
-    # ============================
     Write-Log "Gioco chiuso. Ripristino impostazioni..."
     Show-Toast "GameBoost Plus Ultra" "Ripristino impostazioni..."
 
-    netsh int tcp set global autotuninglevel=normal | Out-Null
-    netsh int tcp set global rss=enabled | Out-Null
-    netsh int tcp set global ecncapability=default | Out-Null
-    netsh int tcp set global timestamps=default | Out-Null
+    netsh int tcp set global autotuninglevel=normal  | Out-Null
+    netsh int tcp set global rss=enabled            | Out-Null
+    netsh int tcp set global ecncapability=default  | Out-Null
+    netsh int tcp set global timestamps=default     | Out-Null
 
     Write-Log "Ripristino completato."
 }
 
 # ============================
+#   OTTIMIZZA RETE (STUB)
+# ============================
+function Ottimizza-Rete {
+    Write-Log "Ottimizzazione rete avviata (stub)"
+    # Se vuoi, qui in futuro mettiamo un modulo rete dedicato
+}
+
+# ============================
 #   GUI XAML
 # ============================
-
 [xml]$xaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -640,29 +549,25 @@ function GameBoost-Plus {
 
     <Grid Margin="20">
 
-        <!-- DEFINIZIONE RIGHE -->
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>   <!-- Titolo -->
-            <RowDefinition Height="Auto"/>   <!-- Contenuto -->
-            <RowDefinition Height="Auto"/>   <!-- Progress Bar -->
-            <RowDefinition Height="Auto"/>   <!-- Status Bar -->
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- TITOLO -->
         <TextBlock Text="Pulizia Completa - Tiberio Edition V6.4 (Portable + Progress Bar)"
                    FontSize="22"
                    FontWeight="Bold"
                    Foreground="#202020"
                    Margin="0,0,0,15"/>
 
-        <!-- CONTENUTO PRINCIPALE -->
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <!-- COLONNA SINISTRA -->
             <StackPanel Grid.Column="0" Margin="0,0,10,0">
                 <TextBlock Text="Manutenzione" FontWeight="Bold" Margin="0,0,0,10"/>
 
@@ -678,7 +583,6 @@ function GameBoost-Plus {
                 <Button x:Name="BtnControllaAggiornamenti" Content="Controlla Aggiornamenti" Height="32" Margin="0,10,0,0"/>
             </StackPanel>
 
-            <!-- COLONNA DESTRA -->
             <StackPanel Grid.Column="1" Margin="10,0,0,0">
                 <TextBlock Text="Gaming" FontWeight="Bold" Margin="0,0,0,10"/>
 
@@ -690,7 +594,6 @@ function GameBoost-Plus {
             </StackPanel>
         </Grid>
 
-        <!-- PROGRESS BAR -->
         <ProgressBar x:Name="ProgressBarOperazione"
                      Grid.Row="2"
                      Minimum="0" Maximum="100"
@@ -698,7 +601,6 @@ function GameBoost-Plus {
                      Margin="0,15,0,5"
                      Value="0"/>
 
-        <!-- STATUS BAR -->
         <StatusBar Grid.Row="3" Margin="0,10,0,0">
             <StatusBarItem>
                 <TextBlock x:Name="TxtStatus" Text="Pronto."/>
@@ -708,17 +610,16 @@ function GameBoost-Plus {
     </Grid>
 </Window>
 "@
+
 # ============================
 #   PARSING XAML
 # ============================
-
 $reader = New-Object System.Xml.XmlNodeReader $xaml
 $Window = [Windows.Markup.XamlReader]::Load($reader)
 
 # ============================
 #   RIFERIMENTI CONTROLLI
 # ============================
-
 $BtnPuliziaBase            = $Window.FindName("BtnPuliziaBase")
 $BtnPuliziaGaming          = $Window.FindName("BtnPuliziaGaming")
 $BtnPuliziaBrowser         = $Window.FindName("BtnPuliziaBrowser")
@@ -737,7 +638,6 @@ $ProgressBarOperazione     = $Window.FindName("ProgressBarOperazione")
 # ============================
 #   HANDLER PULSANTI
 # ============================
-
 $BtnPuliziaBase.Add_Click({
     $TxtStatus.Text = "Esecuzione Pulizia Base..."
     Write-Log "Avvio Pulizia Base (da GUI)"
@@ -805,9 +705,7 @@ $BtnGamingBoost.Add_Click({
 $BtnGamingBoostPlus.Add_Click({
     $TxtStatus.Text = "Gaming Boost PLUS in corso..."
     Write-Log "Avvio Gaming Boost PLUS (da GUI)"
-
-    GameBoost-Plus   # <-- IL NUOVO MODULO ULTRA
-
+    GameBoost-Plus
     $TxtStatus.Text = "Gaming Boost PLUS completato."
 })
 
@@ -828,6 +726,9 @@ $BtnEsci.Add_Click({
     Write-Log "Chiusura applicazione da GUI"
     $Window.Close()
 })
+
+# Mostra finestra
+$Window.ShowDialog() | Out-Null
 
 # ============================
 #   MOSTRA LA GUI
