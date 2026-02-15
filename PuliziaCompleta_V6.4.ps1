@@ -425,6 +425,53 @@ function Gaming-Boost {
     Write-Log "Gaming Boost completato"
 }
 
+# ============================
+#   GAME BOOST PLUS ULTRA
+# ============================
+function GameBoost-Plus {
+
+    Write-Log "GameBoost Plus Ultra avviato. In attesa di ETS2 o TruckersMP..."
+
+    $processiDaChiudere = @(
+        "chrome","msedge","opera","firefox",
+        "onedrive","steamwebhelper","epicgameslauncher",
+        "battle.net","spotify","origin","uplay","goggalaxy"
+    )
+
+    try {
+        $null = [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime]
+    } catch {}
+
+    function Show-Toast($title, $msg) {
+        try {
+            $template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent(
+                [Windows.UI.Notifications.ToastTemplateType]::ToastText02
+            )
+            $toastText = $template.GetElementsByTagName("text")
+            $toastText.Item(0).AppendChild($template.CreateTextNode($title)) | Out-Null
+            $toastText.Item(1).AppendChild($template.CreateTextNode($msg))   | Out-Null
+            $toast = [Windows.UI.Notifications.ToastNotification]::new($template)
+            $notifier = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("TiberioEdition")
+            $notifier.Show($toast)
+        } catch {}
+    }
+
+    # Attesa avvio ETS2 o TMP
+    while (-not (Get-Process -Name "eurotrucks2" -ErrorAction SilentlyContinue) -and
+           -not (Get-Process -Name "truckersmp-launcher" -ErrorAction SilentlyContinue) -and
+           -not (Get-Process -Name "truckersmp-cli" -ErrorAction SilentlyContinue)) {
+        Start-Sleep -Seconds 2
+    }
+
+    Write-Log "Gioco rilevato. Attivazione GameBoost Plus Ultra..."
+    Show-Toast "GameBoost Plus Ultra" "Ottimizzazioni attive per ETS2/TMP"
+
+    foreach ($p in $processiDaChiudere) {
+        try {
+            Get-Process -Name $p -ErrorAction SilentlyContinue | Stop-Process -Force
+            Write-Log "Processo chiuso: $p"
+        } catch {}
+    }
 
     Pulizia-TMP
     Ottimizza-ETS2-Config
@@ -442,8 +489,8 @@ function Gaming-Boost {
     New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces" -Name "TcpAckFrequency" -Value 1 -PropertyType DWord -Force | Out-Null
     New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces" -Name "TCPNoDelay"      -Value 1 -PropertyType DWord -Force | Out-Null
 
-    ipconfig /flushdns                        | Out-Null
-    netsh interface ip delete arpcache        | Out-Null
+    ipconfig /flushdns                 | Out-Null
+    netsh interface ip delete arpcache | Out-Null
 
     Write-Log "Ottimizzazioni rete applicate."
 
@@ -486,9 +533,7 @@ function Gaming-Boost {
 # ============================
 function Ottimizza-Rete {
     Write-Log "Ottimizzazione rete avviata (stub)"
-    # Se vuoi, qui in futuro mettiamo un modulo rete dedicato
 }
-
 # ============================
 #   GUI XAML
 # ============================
@@ -680,13 +725,10 @@ $BtnEsci.Add_Click({
     $Window.Close()
 })
 
-# Mostra finestra
-$Window.ShowDialog() | Out-Null
-
 # ============================
 #   MOSTRA LA GUI
 # ============================
-
 Write-Log "Avvio GUI"
 $Window.ShowDialog() | Out-Null
 Write-Log "GUI chiusa"
+
