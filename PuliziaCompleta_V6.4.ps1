@@ -51,8 +51,26 @@ function Controlla-Aggiornamenti {
     try {
         Write-Log "Controllo aggiornamenti..."
 
+        # Percorso locale sicuro (funziona anche in GUI)
+        $ScriptPath = $PSCommandPath
+
+        if ([string]::IsNullOrWhiteSpace($ScriptPath)) {
+            Write-Log "Percorso script locale vuoto. Aggiornamento impossibile."
+            [System.Windows.MessageBox]::Show(
+                "Percorso script locale non valido. Aggiornamento annullato.",
+                "Errore aggiornamenti",
+                "OK",
+                "Error"
+            ) | Out-Null
+            return
+        }
+
+        Write-Log "Percorso script locale: $ScriptPath"
+
+        # Scarica contenuto remoto
         $contenutoRemoto = (Invoke-WebRequest -Uri $UrlScriptRemoto -UseBasicParsing -ErrorAction Stop).Content
 
+        # Estrai versione remota
         $VersioneRemota = $null
         if ($contenutoRemoto -match '\$VersioneLocale\s*=\s*"([^"]+)"') {
             $VersioneRemota = $matches[1]
@@ -71,6 +89,7 @@ function Controlla-Aggiornamenti {
 
         Write-Log "Versione remota trovata: $VersioneRemota"
 
+        # Confronto versioni
         if ($VersioneRemota -le $VersioneLocale) {
             Write-Log "Lo script è già aggiornato alla versione $VersioneLocale."
             [System.Windows.MessageBox]::Show(
@@ -100,15 +119,18 @@ function Controlla-Aggiornamenti {
 
         Write-Log "Utente ha confermato l'aggiornamento alla versione $VersioneRemota"
 
-        $ScriptPath = $MyInvocation.MyCommand.Source
+        # Percorso backup
         $BackupPath = "$ScriptPath.bak"
 
+        # Backup
         Copy-Item -Path $ScriptPath -Destination $BackupPath -Force
         Write-Log "Backup creato: $BackupPath"
 
+        # Aggiornamento file locale
         Set-Content -Path $ScriptPath -Value $contenutoRemoto -Force -Encoding UTF8
         Write-Log "Script aggiornato alla versione $VersioneRemota"
 
+        # Notifica
         [System.Windows.MessageBox]::Show(
             "Aggiornamento completato alla versione $VersioneRemota.`nLo script verrà riavviato.",
             "Aggiornamento completato",
@@ -116,6 +138,7 @@ function Controlla-Aggiornamenti {
             "Information"
         ) | Out-Null
 
+        # Riavvio script
         Start-Process "powershell.exe" "-NoProfile -ExecutionPolicy Bypass -File `"$ScriptPath`""
         Write-Log "Riavvio automatico dello script eseguito (da funzione Controlla-Aggiornamenti)"
         exit
@@ -130,6 +153,7 @@ function Controlla-Aggiornamenti {
         ) | Out-Null
     }
 }
+
 # ============================
 #   PROGRESS BAR
 # ============================
