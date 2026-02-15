@@ -1,734 +1,306 @@
-# ============================
-#   TIBERIO EDITION V6.4 - PORTABLE MODE
-#   CODICE OTTIMIZZATO
-# ============================
-
 Add-Type -AssemblyName PresentationFramework
 Add-Type -AssemblyName PresentationCore
 Add-Type -AssemblyName WindowsBase
 
-# ----------------------------
-#   VERSIONE + CHANGELOG
-# ----------------------------
+$VersioneLocale="6.4.0"
+$BasePath=$PSScriptRoot
+$LogPath=Join-Path $BasePath "log.txt"
+if(!(Test-Path $LogPath)){New-Item -ItemType File -Path $LogPath|Out-Null}
 
-$VersioneLocale = "6.4.0"
+function Write-Log($m){Add-Content -Path $LogPath -Value "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] $m"}
 
-$ChangelogLocale = @"
-NOVITÀ VERSIONE 6.4:
-- Modalità PORTABLE (niente Program Files)
-- Barra di Progresso Reale
-- Codice ripulito e ottimizzato
-"@
+$UrlScriptRemoto="https://raw.githubusercontent.com/M4r10685/TiberioEditionV6/main/PuliziaCompleta_V6.4.ps1"
 
-# ----------------------------
-#   PERCORSI PORTABLE
-# ----------------------------
-
-$BasePath = $PSScriptRoot
-
-# Log nella stessa cartella dello script
-$LogPath = Join-Path $BasePath "log.txt"
-if (!(Test-Path $LogPath)) {
-    New-Item -ItemType File -Path $LogPath -Force | Out-Null
+function Controlla-Aggiornamenti{
+try{
+Write-Log "Controllo aggiornamenti"
+$ScriptPath=$PSCommandPath
+$rem=(Invoke-WebRequest -Uri $UrlScriptRemoto -UseBasicParsing).Content
+if($rem -match '\$VersioneLocale\s*=\s*"([^"]+)"'){$vr=$matches[1]}
+if($vr -le $VersioneLocale){[System.Windows.MessageBox]::Show("Già aggiornato.","OK","Information")|Out-Null;return}
+$choice=[System.Windows.MessageBox]::Show("Nuova versione $vr. Aggiornare?","Update","YesNo","Question")
+if($choice -ne "Yes"){return}
+Copy-Item $ScriptPath "$ScriptPath.bak" -Force
+Set-Content -Path $ScriptPath -Value $rem -Encoding UTF8
+[System.Windows.MessageBox]::Show("Aggiornato a $vr. Riavvio.","OK","Information")|Out-Null
+Start-Process "powershell.exe" "-NoProfile -ExecutionPolicy Bypass -File `"$ScriptPath`"";exit
+}catch{Write-Log "Errore update: $($_.Exception.Message)"}
 }
 
-function Write-Log {
-    param([string]$msg)
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    Add-Content -Path $LogPath -Value "[$timestamp] $msg"
-}
+function Set-Progress($v){$Window.Dispatcher.Invoke({$ProgressBarOperazione.Value=$v})}
 
-Write-Log "Avvio Tiberio Edition V6.4 (Portable Mode)"
+function Pulizia-Browser{
+Write-Log "Pulizia Browser"
+$paths=@(
+"$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Cache",
+"$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Code Cache",
+"$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Cache",
+"$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Code Cache",
+"$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\Default\Cache",
+"$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\Default\Code Cache"
+)
+$step=100/$paths.Count;$c=0;$f=0
+foreach($p in $paths){
+if(Test-Path $p){
+$s=(Get-ChildItem $p -Recurse -ErrorAction SilentlyContinue|Measure-Object Length -Sum).Sum
+Remove-Item $p -Recurse -Force -ErrorAction SilentlyContinue
+$f+=$s}
+$c+=$step;Set-Progress $c}
+Set-Progress 100;Start-Sleep -Milliseconds 200;Set-Progress 0
+return $f}
 
-# ----------------------------
-#   AUTO-UPDATE PORTABLE
-# ----------------------------
-
-# URL RAW del file V6.4 su GitHub
-$UrlScriptRemoto = "https://raw.githubusercontent.com/M4r10685/TiberioEditionV6/main/PuliziaCompleta_V6.4.ps1"
-
-# ============================
-#   CONTROLLO AGGIORNAMENTI
-# ============================
-function Controlla-Aggiornamenti {
-    try {
-        Write-Log "Controllo aggiornamenti..."
-
-        # Percorso locale sicuro (funziona anche in GUI)
-        $ScriptPath = $PSCommandPath
-
-        if ([string]::IsNullOrWhiteSpace($ScriptPath)) {
-            Write-Log "Percorso script locale vuoto. Aggiornamento impossibile."
-            [System.Windows.MessageBox]::Show(
-                "Percorso script locale non valido. Aggiornamento annullato.",
-                "Errore aggiornamenti",
-                "OK",
-                "Error"
-            ) | Out-Null
-            return
-        }
-
-        Write-Log "Percorso script locale: $ScriptPath"
-
-        # Scarica contenuto remoto
-        $contenutoRemoto = (Invoke-WebRequest -Uri $UrlScriptRemoto -UseBasicParsing -ErrorAction Stop).Content
-
-        # Estrai versione remota
-        $VersioneRemota = $null
-        if ($contenutoRemoto -match '\$VersioneLocale\s*=\s*"([^"]+)"') {
-            $VersioneRemota = $matches[1]
-        }
-
-        if (-not $VersioneRemota) {
-            Write-Log "Impossibile leggere la versione remota."
-            [System.Windows.MessageBox]::Show(
-                "Impossibile determinare la versione remota dallo script.",
-                "Errore aggiornamenti",
-                "OK",
-                "Error"
-            ) | Out-Null
-            return
-        }
-
-        Write-Log "Versione remota trovata: $VersioneRemota"
-
-        # Confronto versioni
-        if ($VersioneRemota -le $VersioneLocale) {
-            Write-Log "Lo script è già aggiornato alla versione $VersioneLocale."
-            [System.Windows.MessageBox]::Show(
-                "La versione locale ($VersioneLocale) è già aggiornata.",
-                "Controllo aggiornamenti",
-                "OK",
-                "Information"
-            ) | Out-Null
-            return
-        }
-
-        # Aggiornamento disponibile
-        $msg = "È stata trovata una nuova versione: $VersioneRemota (locale: $VersioneLocale)." +
-               "`nVuoi aggiornare ora? Verrà creato un backup automatico."
-
-        $choice = [System.Windows.MessageBox]::Show(
-            $msg,
-            "Nuova versione disponibile",
-            "YesNo",
-            "Question"
-        )
-
-        if ($choice -ne "Yes") {
-            Write-Log "Utente ha annullato l'aggiornamento."
-            return
-        }
-
-        Write-Log "Utente ha confermato l'aggiornamento alla versione $VersioneRemota"
-
-        # Percorso backup
-        $BackupPath = "$ScriptPath.bak"
-
-        # Backup
-        Copy-Item -Path $ScriptPath -Destination $BackupPath -Force
-        Write-Log "Backup creato: $BackupPath"
-
-        # Aggiornamento file locale
-        Set-Content -Path $ScriptPath -Value $contenutoRemoto -Force -Encoding UTF8
-        Write-Log "Script aggiornato alla versione $VersioneRemota"
-
-        # Notifica
-        [System.Windows.MessageBox]::Show(
-            "Aggiornamento completato alla versione $VersioneRemota.`nLo script verrà riavviato.",
-            "Aggiornamento completato",
-            "OK",
-            "Information"
-        ) | Out-Null
-
-        # Riavvio script
-        Start-Process "powershell.exe" "-NoProfile -ExecutionPolicy Bypass -File `"$ScriptPath`""
-        Write-Log "Riavvio automatico dello script eseguito (da funzione Controlla-Aggiornamenti)"
-        exit
-    }
-    catch {
-        Write-Log "Errore durante il controllo/aggiornamento: $($_.Exception.Message)"
-        [System.Windows.MessageBox]::Show(
-            "Si è verificato un errore durante il controllo o l'installazione dell'aggiornamento.`nControlla il log per i dettagli.",
-            "Errore aggiornamenti",
-            "OK",
-            "Error"
-        ) | Out-Null
-    }
-}
-
-# ============================
-#   PROGRESS BAR
-# ============================
-function Set-Progress {
-    param([int]$Value)
-
-    $Window.Dispatcher.Invoke({
-        $ProgressBarOperazione.Value = $Value
-    })
-}
-
-# ============================
-#   PULIZIA BROWSER
-# ============================
-function Pulizia-Browser {
-    Write-Log "Pulizia Browser avviata"
-    Set-Progress 0
-
-    $paths = @(
-        "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Cache",
-        "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Code Cache",
-        "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Cache",
-        "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Code Cache",
-        "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\Default\Cache",
-        "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\Default\Code Cache"
-    )
-
-    $step = 100 / $paths.Count
-    $current = 0
-    $freed = 0
-
-    foreach ($p in $paths) {
-        if (Test-Path $p) {
-            $size = (Get-ChildItem -Path $p -Recurse -ErrorAction SilentlyContinue |
-                     Measure-Object -Property Length -Sum).Sum
-            Remove-Item -Path $p -Recurse -Force -ErrorAction SilentlyContinue
-            $freed += $size
-        }
-
-        $current += $step
-        Set-Progress $current
-    }
-
-    Set-Progress 100
-    Start-Sleep -Milliseconds 300
-    Set-Progress 0
-
-    Write-Log "Pulizia Browser completata. Byte liberati: $freed"
-    return $freed
-}
-
-# ============================
-#   PULIZIA USB
-# ============================
-function Pulizia-USB {
-    Write-Log "Pulizia USB avviata"
-    Set-Progress 0
-
-    $drives = Get-PSDrive -PSProvider FileSystem |
-              Where-Object { $_.Root -match "^[A-Z]:\\" -and $_.Free -gt 0 }
-
-    if ($drives.Count -eq 0) {
-        Write-Log "Nessuna USB rilevata"
-        return 0
-    }
-
-    $step = 100 / $drives.Count
-    $current = 0
-    $freed = 0
-
-    foreach ($d in $drives) {
-        $patterns = "*.tmp","*.log","*.bak","*.old","*.chk"
-
-        foreach ($pat in $patterns) {
-            $files = Get-ChildItem -Path $d.Root -Filter $pat -Recurse -ErrorAction SilentlyContinue
-            foreach ($f in $files) {
-                $freed += $f.Length
-                Remove-Item $f.FullName -Force -ErrorAction SilentlyContinue
-            }
-        }
-
-        $current += $step
-        Set-Progress $current
-    }
-
-    Set-Progress 100
-    Start-Sleep -Milliseconds 300
-    Set-Progress 0
-
-    Write-Log "Pulizia USB completata. Byte liberati: $freed"
-    return $freed
-}
-
-# ============================
-#   SALVATAGGIO DRIVER
-# ============================
-function Salva-Driver {
-    try {
+function Pulizia-USB{
+Write-Log "Pulizia USB"
+$dr=Get-PSDrive -PSProvider FileSystem|Where-Object{$_.Root -match "^[A-Z]:\\"}
+if($dr.Count -eq 0){return 0}
+$step=100/$dr.Count;$c=0;$f=0
+foreach($d in $dr){
+$patterns="*.tmp","*.log","*.bak","*.old","*.chk"
+foreach($pat in $patterns){
+$files=Get-ChildItem $d.Root -Filter $pat -Recurse -ErrorAction SilentlyContinue
+foreach($x in $files){$f+=$x.Length;Remove-Item $x.FullName -Force -ErrorAction SilentlyContinue}}
+$c+=$step;Set-Progress $c}
+Set-Progress 100;Start-Sleep -Milliseconds 200;Set-Progress 0
+return $f}
+function Salva-Driver{
+    try{
         Write-Log "Salvataggio driver avviato"
-        Set-Progress 0
 
         $dest = Join-Path $BasePath "DriverBackup"
-        if (!(Test-Path $dest)) {
+        if(!(Test-Path $dest)){
             New-Item -ItemType Directory -Path $dest | Out-Null
         }
 
-        Set-Progress 20
+        # Esporta tutti i driver installati
+        pnputil /export-driver * "$dest" | Out-Null
 
-        Write-Log "Esportazione driver tramite pnputil..."
-        $output = pnputil /export-driver * "$dest" 2>&1
-
-        Set-Progress 80
-
-        $count = (Get-ChildItem -Path $dest -Recurse -ErrorAction SilentlyContinue).Count
-
-        Set-Progress 100
-        Start-Sleep -Milliseconds 300
-        Set-Progress 0
-
-        Write-Log "Salvataggio driver completato ($count file)"
+        Write-Log "Salvataggio driver completato"
         return $true
     }
-    catch {
-        Write-Log "Errore durante il salvataggio driver: $($_.Exception.Message)"
-        Set-Progress 0
+    catch{
+        Write-Log "Errore salvataggio driver: $($_.Exception.Message)"
         return $false
     }
 }
+function Pulizia-Base{
+Write-Log "Pulizia Base"
+$paths=@(
+"$env:TEMP\*",
+"$env:WINDIR\Temp\*",
+"$env:LOCALAPPDATA\Temp\*",
+"$env:LOCALAPPDATA\CrashDumps\*",
+"$env:LOCALAPPDATA\Microsoft\Windows\WebCache\*",
+"$env:LOCALAPPDATA\Microsoft\Windows\INetCache\*"
+)
+$step=100/$paths.Count;$c=0;$f=0
+foreach($p in $paths){
+if(Test-Path $p){
+$s=(Get-ChildItem $p -Recurse -ErrorAction SilentlyContinue|Measure-Object Length -Sum).Sum
+Remove-Item $p -Recurse -Force -ErrorAction SilentlyContinue
+$f+=$s}
+$c+=$step;Set-Progress $c}
+try{(New-Object -ComObject Shell.Application).Namespace(0xA).Items()|ForEach-Object{$_.InvokeVerb("delete")}}catch{}
+Set-Progress 100;Start-Sleep -Milliseconds 200;Set-Progress 0
+return $f}
 
-# ============================
-#   PULIZIA BASE
-# ============================
-function Pulizia-Base {
-    Write-Log "Pulizia Base avviata"
-    Set-Progress 0
+function Pulizia-Gaming{
+Write-Log "Pulizia Gaming"
+$paths=@(
+"$env:LOCALAPPDATA\NVIDIA\DXCache\*",
+"$env:LOCALAPPDATA\NVIDIA\GLCache\*",
+"$env:LOCALAPPDATA\AMD\DxCache\*",
+"$env:LOCALAPPDATA\Microsoft\DirectX Shader Cache\*",
+"$env:LOCALAPPDATA\Temp\*.tmp"
+)
+$step=100/$paths.Count;$c=0;$f=0
+foreach($p in $paths){
+if(Test-Path $p){
+$s=(Get-ChildItem $p -Recurse -ErrorAction SilentlyContinue|Measure-Object Length -Sum).Sum
+Remove-Item $p -Recurse -Force -ErrorAction SilentlyContinue
+$f+=$s}
+$c+=$step;Set-Progress $c}
+Set-Progress 100;Start-Sleep -Milliseconds 200;Set-Progress 0
+return $f}
 
-    $paths = @(
-        "$env:TEMP\*",
-        "$env:WINDIR\Temp\*",
-        "$env:LOCALAPPDATA\Temp\*",
-        "$env:LOCALAPPDATA\CrashDumps\*",
-        "$env:LOCALAPPDATA\Microsoft\Windows\WebCache\*",
-        "$env:LOCALAPPDATA\Microsoft\Windows\INetCache\*"
-    )
+function Manutenzione-Completa{
+Pulizia-Base|Out-Null;Set-Progress 33
+Pulizia-Gaming|Out-Null;Set-Progress 66
+Pulizia-Browser|Out-Null;Set-Progress 100
+Start-Sleep -Milliseconds 200;Set-Progress 0}
 
-    $step = 100 / $paths.Count
-    $current = 0
-    $freed = 0
+function Ripara-Sistema{
 
-    foreach ($p in $paths) {
-        if (Test-Path $p) {
-            $size = (Get-ChildItem -Path $p -Recurse -ErrorAction SilentlyContinue |
-                     Measure-Object -Property Length -Sum).Sum
-            Remove-Item -Path $p -Recurse -Force -ErrorAction SilentlyContinue
-            $freed += $size
+    # Esegui SFC e attendi che finisca
+    Start-Process powershell -ArgumentList "sfc /scannow" -Verb RunAs -Wait
+
+    # Esegui DISM e attendi che finisca
+    Start-Process powershell -ArgumentList "DISM /Online /Cleanup-Image /RestoreHealth" -Verb RunAs -Wait
+
+    # Messaggio finale
+    [System.Windows.MessageBox]::Show("Riparazione completata.","Ripara Sistema") | Out-Null
+}
+
+
+function GameBoost-Plus{
+
+    # Controlla che il gioco sia avviato
+    $gameProcs = @()
+    $gameProcs += Get-Process "eurotrucks2" -ErrorAction SilentlyContinue
+    $gameProcs += Get-Process "truckersmp-launcher" -ErrorAction SilentlyContinue
+    $gameProcs += Get-Process "truckersmp-cli" -ErrorAction SilentlyContinue
+
+    if(-not $gameProcs){
+        [System.Windows.MessageBox]::Show("Avvia prima ETS2 o TruckersMP.","GameBoost PLUS ULTRA") | Out-Null
+        return
+    }
+
+    # Avvia il boost in background per non bloccare la GUI
+    $scriptBlock = {
+        param($gamePids)
+
+        # Processi da chiudere
+        $kill=@(
+            "chrome","msedge","opera","firefox","onedrive",
+            "steamwebhelper","epicgameslauncher","battle.net",
+            "spotify","origin","uplay","goggalaxy"
+        )
+
+        # Salva piano energetico corrente
+        $currentScheme = (powercfg /getactivescheme) -replace '.*GUID:\s*([a-f0-9\-]+).*','$1'
+
+        # Attiva High Performance se disponibile
+        $highPerf = (powercfg /list | Select-String "High performance|Prestazioni elevate")
+        if($highPerf){
+            $hpGuid = ($highPerf.ToString() -replace '.*GUID:\s*([a-f0-9\-]+).*','$1')
+            if($hpGuid){
+                powercfg /setactive $hpGuid | Out-Null
+            }
         }
 
-        $current += $step
-        Set-Progress $current
-    }
+        # Ottimizzazioni rete
+        netsh int tcp set global autotuninglevel=disabled | Out-Null
+        netsh int tcp set global rss=enabled | Out-Null
+        netsh int tcp set global ecncapability=disabled | Out-Null
+        netsh int tcp set global timestamps=disabled | Out-Null
 
-    # Svuotamento cestino
-    try {
-        Write-Log "Svuotamento cestino..."
-        (New-Object -ComObject Shell.Application).NameSpace(0xA).Items() |
-            ForEach-Object { $_.InvokeVerb("delete") }
-        Write-Log "Cestino svuotato."
-    }
-    catch {
-        Write-Log "Errore durante lo svuotamento del cestino: $($_.Exception.Message)"
-    }
+        ipconfig /flushdns | Out-Null
+        netsh interface ip delete arpcache | Out-Null
 
-    Set-Progress 100
-    Start-Sleep -Milliseconds 300
-    Set-Progress 0
+        # Loop dinamico finché il gioco è aperto
+        while($true){
 
-    Write-Log "Pulizia Base completata. Byte liberati: $freed"
-    return $freed
-}
+            $alive = @()
+            foreach($pid in $gamePids){
+                $p = Get-Process -Id $pid -ErrorAction SilentlyContinue
+                if($p){ $alive += $p }
+            }
 
-# ============================
-#   PULIZIA GAMING
-# ============================
-function Pulizia-Gaming {
-    Write-Log "Pulizia Gaming avviata"
-    Set-Progress 0
+            if(-not $alive){
+                break
+            }
 
-    $paths = @(
-        "$env:LOCALAPPDATA\NVIDIA\DXCache\*",
-        "$env:LOCALAPPDATA\NVIDIA\GLCache\*",
-        "$env:LOCALAPPDATA\AMD\DxCache\*",
-        "$env:LOCALAPPDATA\Microsoft\DirectX Shader Cache\*",
-        "$env:LOCALAPPDATA\Temp\*.tmp"
-    )
+            # Priorità CPU alta per il gioco
+            foreach($p in $alive){
+                try{
+                    $p.PriorityClass = "High"
+                }catch{}
+            }
 
-    $step = 100 / $paths.Count
-    $current = 0
-    $freed = 0
+            # Chiudi processi inutili se riaperti
+            foreach($name in $kill){
+                $proc = Get-Process $name -ErrorAction SilentlyContinue
+                if($proc){
+                    try{ $proc | Stop-Process -Force }catch{}
+                }
+            }
 
-    foreach ($p in $paths) {
-        if (Test-Path $p) {
-            $size = (Get-ChildItem -Path $p -Recurse -ErrorAction SilentlyContinue |
-                     Measure-Object -Property Length -Sum).Sum
-            Remove-Item -Path $p -Recurse -Force -ErrorAction SilentlyContinue
-            $freed += $size
+            Start-Sleep -Seconds 5
         }
 
-        $current += $step
-        Set-Progress $current
+        # Ripristino rete
+        netsh int tcp set global autotuninglevel=normal | Out-Null
+        netsh int tcp set global ecncapability=default | Out-Null
+        netsh int tcp set global timestamps=default | Out-Null
+
+        # Ripristino piano energetico
+        if($currentScheme){
+            powercfg /setactive $currentScheme | Out-Null
+        }
     }
 
-    Set-Progress 100
-    Start-Sleep -Milliseconds 300
-    Set-Progress 0
+    $pids = $gameProcs | Select-Object -ExpandProperty Id
+    Start-Job -ScriptBlock $scriptBlock -ArgumentList @($pids) | Out-Null
 
-    Write-Log "Pulizia Gaming completata. Byte liberati: $freed"
-    return $freed
+    [System.Windows.MessageBox]::Show("GameBoost PLUS ULTRA attivo in background.","GameBoost PLUS ULTRA") | Out-Null
 }
 
-# ============================
-#   MANUTENZIONE COMPLETA AVANZATA
-# ============================
-function Manutenzione-Completa {
-    Write-Log "Manutenzione Completa Avanzata avviata"
-    Set-Progress 0
 
-    Pulizia-Base   | Out-Null
-    Set-Progress 33
 
-    Pulizia-Gaming | Out-Null
-    Set-Progress 66
+function Ottimizza-Rete{Write-Log "Ottimizzazione rete"}
 
-    Pulizia-Browser | Out-Null
-    Set-Progress 100
-
-    Start-Sleep -Milliseconds 300
-    Set-Progress 0
-
-    Write-Log "Manutenzione Completa Avanzata completata"
-}
-
-# ============================
-#   RIPARAZIONE SISTEMA
-# ============================
-function Ripara-Sistema {
-    Write-Log "Riparazione Sistema avviata"
-
-    Start-Process "powershell.exe" -ArgumentList "-Command sfc /scannow" -Verb RunAs
-    Start-Process "powershell.exe" -ArgumentList "-Command DISM /Online /Cleanup-Image /RestoreHealth" -Verb RunAs
-
-    Write-Log "Riparazione Sistema avviata (SFC + DISM)"
-}
-
-# ============================
-#   GAMING BOOST
-# ============================
-function Gaming-Boost {
-    Write-Log "Gaming Boost avviato"
-
-    Stop-Service "SysMain" -Force -ErrorAction SilentlyContinue
-    Stop-Service "DiagTrack" -Force -ErrorAction SilentlyContinue
-
-    Set-ItemProperty -Path "HKCU:\Software\Microsoft\GameBar" -Name "AllowAutoGameMode" -Value 1 -Force
-    Set-ItemProperty -Path "HKCU:\Software\Microsoft\GameBar" -Name "AutoGameModeEnabled" -Value 1 -Force
-
-    Write-Log "Gaming Boost completato"
-}
-
-# ============================
-#   GAME BOOST PLUS ULTRA
-# ============================
-function GameBoost-Plus {
-
-    Write-Log "GameBoost Plus Ultra avviato. In attesa di ETS2 o TruckersMP..."
-
-    $processiDaChiudere = @(
-        "chrome","msedge","opera","firefox",
-        "onedrive","steamwebhelper","epicgameslauncher",
-        "battle.net","spotify","origin","uplay","goggalaxy"
-    )
-
-    try {
-        $null = [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime]
-    } catch {}
-
-    function Show-Toast($title, $msg) {
-        try {
-            $template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent(
-                [Windows.UI.Notifications.ToastTemplateType]::ToastText02
-            )
-            $toastText = $template.GetElementsByTagName("text")
-            $toastText.Item(0).AppendChild($template.CreateTextNode($title)) | Out-Null
-            $toastText.Item(1).AppendChild($template.CreateTextNode($msg))   | Out-Null
-            $toast = [Windows.UI.Notifications.ToastNotification]::new($template)
-            $notifier = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("TiberioEdition")
-            $notifier.Show($toast)
-        } catch {}
-    }
-
-    # Attesa avvio ETS2 o TMP
-    while (-not (Get-Process -Name "eurotrucks2" -ErrorAction SilentlyContinue) -and
-           -not (Get-Process -Name "truckersmp-launcher" -ErrorAction SilentlyContinue) -and
-           -not (Get-Process -Name "truckersmp-cli" -ErrorAction SilentlyContinue)) {
-        Start-Sleep -Seconds 2
-    }
-
-    Write-Log "Gioco rilevato. Attivazione GameBoost Plus Ultra..."
-    Show-Toast "GameBoost Plus Ultra" "Ottimizzazioni attive per ETS2/TMP"
-
-    foreach ($p in $processiDaChiudere) {
-        try {
-            Get-Process -Name $p -ErrorAction SilentlyContinue | Stop-Process -Force
-            Write-Log "Processo chiuso: $p"
-        } catch {}
-    }
-
-    Pulizia-TMP
-    Ottimizza-ETS2-Config
-    Ottimizza-Convoy
-    FPS-Dinamico
-    Boost-GPU
-
-    Write-Log "Applicazione ottimizzazioni rete..."
-
-    netsh int tcp set global autotuninglevel=disabled | Out-Null
-    netsh int tcp set global rss=enabled             | Out-Null
-    netsh int tcp set global ecncapability=disabled  | Out-Null
-    netsh int tcp set global timestamps=disabled     | Out-Null
-
-    New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces" -Name "TcpAckFrequency" -Value 1 -PropertyType DWord -Force | Out-Null
-    New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces" -Name "TCPNoDelay"      -Value 1 -PropertyType DWord -Force | Out-Null
-
-    ipconfig /flushdns                 | Out-Null
-    netsh interface ip delete arpcache | Out-Null
-
-    Write-Log "Ottimizzazioni rete applicate."
-
-    Write-Log "Impostazione priorità CPU/GPU..."
-    try {
-        $proc = Get-Process -Name "eurotrucks2" -ErrorAction SilentlyContinue
-        if ($proc) { $proc.PriorityClass = "High" }
-
-        Get-Process -Name "nvcontainer","amddriver","amdow" -ErrorAction SilentlyContinue |
-            ForEach-Object { $_.PriorityClass = "High" }
-
-        Write-Log "Priorità impostate."
-    } catch {}
-
-    Write-Log "Ottimizzazioni RAM..."
-    Get-Process | ForEach-Object {
-        try { $_.MinWorkingSet = $_.MinWorkingSet } catch {}
-    }
-    Write-Log "Ottimizzazioni RAM applicate."
-
-    while (Get-Process -Name "eurotrucks2" -ErrorAction SilentlyContinue -or
-           Get-Process -Name "truckersmp-launcher" -ErrorAction SilentlyContinue -or
-           Get-Process -Name "truckersmp-cli" -ErrorAction SilentlyContinue) {
-        Start-Sleep -Seconds 2
-    }
-
-    Write-Log "Gioco chiuso. Ripristino impostazioni..."
-    Show-Toast "GameBoost Plus Ultra" "Ripristino impostazioni..."
-
-    netsh int tcp set global autotuninglevel=normal  | Out-Null
-    netsh int tcp set global rss=enabled            | Out-Null
-    netsh int tcp set global ecncapability=default  | Out-Null
-    netsh int tcp set global timestamps=default     | Out-Null
-
-    Write-Log "Ripristino completato."
-}
-
-# ============================
-#   OTTIMIZZA RETE (STUB)
-# ============================
-function Ottimizza-Rete {
-    Write-Log "Ottimizzazione rete avviata (stub)"
-}
-# ============================
-#   GUI XAML
-# ============================
-[xml]$xaml = @"
+[xml]$x=@"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Tiberio Edition V6.4 - Portable Mode" Height="520" Width="760"
-        WindowStartupLocation="CenterScreen"
-        Background="#F3F3F3"
-        ResizeMode="NoResize">
-
-    <Grid Margin="20">
-
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
-
-        <TextBlock Text="Pulizia Completa - Tiberio Edition V6.4 (Portable + Progress Bar)"
-                   FontSize="22"
-                   FontWeight="Bold"
-                   Foreground="#202020"
-                   Margin="0,0,0,15"/>
-
-        <Grid Grid.Row="1">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-
-            <StackPanel Grid.Column="0" Margin="0,0,10,0">
-                <TextBlock Text="Manutenzione" FontWeight="Bold" Margin="0,0,0,10"/>
-
-                <Button x:Name="BtnPuliziaBase" Content="Pulizia Base" Height="32" Margin="0,0,0,8"/>
-                <Button x:Name="BtnPuliziaGaming" Content="Pulizia Gaming" Height="32" Margin="0,0,0,8"/>
-                <Button x:Name="BtnPuliziaBrowser" Content="Pulizia Browser" Height="32" Margin="0,0,0,8"/>
-                <Button x:Name="BtnPuliziaUSB" Content="Pulizia USB" Height="32" Margin="0,0,0,8"/>
-                <Button x:Name="BtnSalvaDriver" Content="Salva Driver" Height="32" Margin="0,0,0,8"/>
-
-                <Button x:Name="BtnManutenzioneCompleta" Content="Manutenzione Completa Avanzata" Height="32" Margin="0,10,0,8"/>
-                <Button x:Name="BtnRiparazioneSistema" Content="Riparazione Sistema" Height="32" Margin="0,0,0,8"/>
-
-                <Button x:Name="BtnControllaAggiornamenti" Content="Controlla Aggiornamenti" Height="32" Margin="0,10,0,0"/>
-            </StackPanel>
-
-            <StackPanel Grid.Column="1" Margin="10,0,0,0">
-                <TextBlock Text="Gaming" FontWeight="Bold" Margin="0,0,0,10"/>
-
-                <Button x:Name="BtnGamingBoost" Content="Gaming Boost" Height="32" Margin="0,0,0,8"/>
-                <Button x:Name="BtnGamingBoostPlus" Content="Gaming Boost PLUS" Height="32" Margin="0,0,0,8"/>
-                <Button x:Name="BtnOttimizzaRete" Content="Ottimizzazione Rete" Height="32" Margin="0,0,0,8"/>
-
-                <Button x:Name="BtnEsci" Content="Esci" Height="32" Margin="0,20,0,0"/>
-            </StackPanel>
-        </Grid>
-
-        <ProgressBar x:Name="ProgressBarOperazione"
-                     Grid.Row="2"
-                     Minimum="0" Maximum="100"
-                     Height="22"
-                     Margin="0,15,0,5"
-                     Value="0"/>
-
-        <StatusBar Grid.Row="3" Margin="0,10,0,0">
-            <StatusBarItem>
-                <TextBlock x:Name="TxtStatus" Text="Pronto."/>
-            </StatusBarItem>
-        </StatusBar>
-
-    </Grid>
+xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+Title="Tiberio Edition V6.4" Height="520" Width="760" WindowStartupLocation="CenterScreen">
+<Grid Margin="20">
+<Grid.RowDefinitions>
+<RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+</Grid.RowDefinitions>
+<TextBlock Text="Tiberio Edition V6.4" FontSize="22" FontWeight="Bold" Margin="0,0,0,15"/>
+<Grid Grid.Row="1">
+<Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+<StackPanel Grid.Column="0">
+<Button x:Name="BtnPuliziaBase" Content="Pulizia Base" Margin="0,0,0,8"/>
+<Button x:Name="BtnPuliziaGaming" Content="Pulizia Gaming" Margin="0,0,0,8"/>
+<Button x:Name="BtnPuliziaBrowser" Content="Pulizia Browser" Margin="0,0,0,8"/>
+<Button x:Name="BtnPuliziaUSB" Content="Pulizia USB" Margin="0,0,0,8"/>
+<Button x:Name="BtnSalvaDriver" Content="Salva Driver" Margin="0,0,0,8"/>
+<Button x:Name="BtnManutenzioneCompleta" Content="Manutenzione Completa" Margin="0,10,0,8"/>
+<Button x:Name="BtnRiparazioneSistema" Content="Riparazione Sistema" Margin="0,0,0,8"/>
+<Button x:Name="BtnControllaAggiornamenti" Content="Controlla Aggiornamenti" Margin="0,10,0,0"/>
+</StackPanel>
+<StackPanel Grid.Column="1">
+<Button x:Name="BtnGamingBoost" Content="Gaming Boost" Margin="0,0,0,8"/>
+<Button x:Name="BtnGamingBoostPlus" Content="Gaming Boost PLUS" Margin="0,0,0,8"/>
+<Button x:Name="BtnOttimizzaRete" Content="Ottimizza Rete" Margin="0,0,0,8"/>
+<Button x:Name="BtnEsci" Content="Esci" Margin="0,20,0,0"/>
+</StackPanel>
+</Grid>
+<ProgressBar x:Name="ProgressBarOperazione" Grid.Row="2" Height="22" Margin="0,15,0,5"/>
+<StatusBar Grid.Row="3"><StatusBarItem><TextBlock x:Name="TxtStatus" Text="Pronto."/></StatusBarItem></StatusBar>
+</Grid>
 </Window>
 "@
 
-# ============================
-#   PARSING XAML
-# ============================
-$reader = New-Object System.Xml.XmlNodeReader $xaml
-$Window = [Windows.Markup.XamlReader]::Load($reader)
+$reader=New-Object System.Xml.XmlNodeReader $x
+$Window=[Windows.Markup.XamlReader]::Load($reader)
 
-# ============================
-#   RIFERIMENTI CONTROLLI
-# ============================
-$BtnPuliziaBase            = $Window.FindName("BtnPuliziaBase")
-$BtnPuliziaGaming          = $Window.FindName("BtnPuliziaGaming")
-$BtnPuliziaBrowser         = $Window.FindName("BtnPuliziaBrowser")
-$BtnPuliziaUSB             = $Window.FindName("BtnPuliziaUSB")
-$BtnSalvaDriver            = $Window.FindName("BtnSalvaDriver")
-$BtnManutenzioneCompleta   = $Window.FindName("BtnManutenzioneCompleta")
-$BtnRiparazioneSistema     = $Window.FindName("BtnRiparazioneSistema")
-$BtnGamingBoost            = $Window.FindName("BtnGamingBoost")
-$BtnGamingBoostPlus        = $Window.FindName("BtnGamingBoostPlus")
-$BtnOttimizzaRete          = $Window.FindName("BtnOttimizzaRete")
-$BtnControllaAggiornamenti = $Window.FindName("BtnControllaAggiornamenti")
-$BtnEsci                   = $Window.FindName("BtnEsci")
-$TxtStatus                 = $Window.FindName("TxtStatus")
-$ProgressBarOperazione     = $Window.FindName("ProgressBarOperazione")
+$BtnPuliziaBase=$Window.FindName("BtnPuliziaBase")
+$BtnPuliziaGaming=$Window.FindName("BtnPuliziaGaming")
+$BtnPuliziaBrowser=$Window.FindName("BtnPuliziaBrowser")
+$BtnPuliziaUSB=$Window.FindName("BtnPuliziaUSB")
+$BtnSalvaDriver=$Window.FindName("BtnSalvaDriver")
+$BtnManutenzioneCompleta=$Window.FindName("BtnManutenzioneCompleta")
+$BtnRiparazioneSistema=$Window.FindName("BtnRiparazioneSistema")
+$BtnGamingBoost=$Window.FindName("BtnGamingBoost")
+$BtnGamingBoostPlus=$Window.FindName("BtnGamingBoostPlus")
+$BtnOttimizzaRete=$Window.FindName("BtnOttimizzaRete")
+$BtnControllaAggiornamenti=$Window.FindName("BtnControllaAggiornamenti")
+$BtnEsci=$Window.FindName("BtnEsci")
+$TxtStatus=$Window.FindName("TxtStatus")
+$ProgressBarOperazione=$Window.FindName("ProgressBarOperazione")
 
-# ============================
-#   HANDLER PULSANTI
-# ============================
-$BtnPuliziaBase.Add_Click({
-    $TxtStatus.Text = "Esecuzione Pulizia Base..."
-    Write-Log "Avvio Pulizia Base (da GUI)"
-    $freed = Pulizia-Base
-    $MB = [math]::Round($freed / 1MB, 2)
-    $TxtStatus.Text = "Pulizia Base completata. Liberati $MB MB."
-})
+$BtnPuliziaBase.Add_Click({$TxtStatus.Text="Pulizia Base...";$MB=[math]::Round((Pulizia-Base)/1MB,2);$TxtStatus.Text="Completata ($MB MB)"})
+$BtnPuliziaGaming.Add_Click({$TxtStatus.Text="Pulizia Gaming...";$MB=[math]::Round((Pulizia-Gaming)/1MB,2);$TxtStatus.Text="Completata ($MB MB)"})
+$BtnPuliziaBrowser.Add_Click({$TxtStatus.Text="Pulizia Browser...";$MB=[math]::Round((Pulizia-Browser)/1MB,2);$TxtStatus.Text="Completata ($MB MB)"})
+$BtnPuliziaUSB.Add_Click({$TxtStatus.Text="Pulizia USB...";$MB=[math]::Round((Pulizia-USB)/1MB,2);$TxtStatus.Text="Completata ($MB MB)"})
+$BtnSalvaDriver.Add_Click({$TxtStatus.Text="Salvataggio driver...";if(Salva-Driver){$TxtStatus.Text="Driver salvati"}else{$TxtStatus.Text="Errore"}})
+$BtnManutenzioneCompleta.Add_Click({$TxtStatus.Text="Manutenzione...";Manutenzione-Completa;$TxtStatus.Text="Completata"})
+$BtnRiparazioneSistema.Add_Click({$TxtStatus.Text="Riparazione...";Ripara-Sistema;$TxtStatus.Text="Avviata"})
+$BtnGamingBoost.Add_Click({$TxtStatus.Text="Gaming Boost...";Gaming-Boost;$TxtStatus.Text="Completato"})
+$BtnGamingBoostPlus.Add_Click({$TxtStatus.Text="Gaming Boost PLUS...";GameBoost-Plus;$TxtStatus.Text="Completato"})
+$BtnOttimizzaRete.Add_Click({$TxtStatus.Text="Ottimizzazione rete...";Ottimizza-Rete;$TxtStatus.Text="Completata"})
+$BtnControllaAggiornamenti.Add_Click({$TxtStatus.Text="Controllo aggiornamenti...";Controlla-Aggiornamenti})
+$BtnEsci.Add_Click({$Window.Close()})
 
-$BtnPuliziaGaming.Add_Click({
-    $TxtStatus.Text = "Esecuzione Pulizia Gaming..."
-    Write-Log "Avvio Pulizia Gaming (da GUI)"
-    $freed = Pulizia-Gaming
-    $MB = [math]::Round($freed / 1MB, 2)
-    $TxtStatus.Text = "Pulizia Gaming completata. Liberati $MB MB."
-})
-
-$BtnPuliziaBrowser.Add_Click({
-    $TxtStatus.Text = "Pulizia Browser in corso..."
-    Write-Log "Avvio Pulizia Browser (da GUI)"
-    $freed = Pulizia-Browser
-    $MB = [math]::Round($freed / 1MB, 2)
-    $TxtStatus.Text = "Pulizia Browser completata. Liberati $MB MB."
-})
-
-$BtnPuliziaUSB.Add_Click({
-    $TxtStatus.Text = "Pulizia USB in corso..."
-    Write-Log "Avvio Pulizia USB (da GUI)"
-    $freed = Pulizia-USB
-    $MB = [math]::Round($freed / 1MB, 2)
-    $TxtStatus.Text = "Pulizia USB completata. Liberati $MB MB."
-})
-
-$BtnSalvaDriver.Add_Click({
-    $TxtStatus.Text = "Salvataggio driver in corso..."
-    Write-Log "Avvio Salvataggio Driver (da GUI)"
-    $ok = Salva-Driver
-    if ($ok) {
-        $TxtStatus.Text = "Driver salvati correttamente."
-    } else {
-        $TxtStatus.Text = "Errore durante il salvataggio driver."
-    }
-})
-
-$BtnManutenzioneCompleta.Add_Click({
-    $TxtStatus.Text = "Manutenzione Completa Avanzata in corso..."
-    Write-Log "Avvio Manutenzione Completa Avanzata (da GUI)"
-    Manutenzione-Completa
-    $TxtStatus.Text = "Manutenzione Completa Avanzata completata."
-})
-
-$BtnRiparazioneSistema.Add_Click({
-    $TxtStatus.Text = "Riparazione sistema in corso..."
-    Write-Log "Avvio Riparazione Sistema (da GUI)"
-    Ripara-Sistema
-    $TxtStatus.Text = "Riparazione sistema avviata (controlla log)."
-})
-
-$BtnGamingBoost.Add_Click({
-    $TxtStatus.Text = "Gaming Boost in corso..."
-    Write-Log "Avvio Gaming Boost (da GUI)"
-    Gaming-Boost
-    $TxtStatus.Text = "Gaming Boost completato."
-})
-
-$BtnGamingBoostPlus.Add_Click({
-    $TxtStatus.Text = "Gaming Boost PLUS in corso..."
-    Write-Log "Avvio Gaming Boost PLUS (da GUI)"
-    GameBoost-Plus
-    $TxtStatus.Text = "Gaming Boost PLUS completato."
-})
-
-$BtnOttimizzaRete.Add_Click({
-    $TxtStatus.Text = "Ottimizzazione rete in corso..."
-    Write-Log "Avvio Ottimizzazione Rete (da GUI)"
-    Ottimizza-Rete
-    $TxtStatus.Text = "Ottimizzazione rete completata."
-})
-
-$BtnControllaAggiornamenti.Add_Click({
-    $TxtStatus.Text = "Controllo aggiornamenti..."
-    Write-Log "Avvio controllo aggiornamenti (da GUI)"
-    Controlla-Aggiornamenti
-})
-
-$BtnEsci.Add_Click({
-    Write-Log "Chiusura applicazione da GUI"
-    $Window.Close()
-})
-
-# ============================
-#   MOSTRA LA GUI
-# ============================
-Write-Log "Avvio GUI"
-$Window.ShowDialog() | Out-Null
-Write-Log "GUI chiusa"
-
+$Window.ShowDialog()|Out-Null
