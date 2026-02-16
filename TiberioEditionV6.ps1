@@ -711,7 +711,7 @@ $BtnControllaAggiornamenti.Add_Click({
     $TxtStatus.Text = "Controllo aggiornamenti..."
     Write-Log "Avvio controllo aggiornamenti"
 
-  $url = "https://raw.githubusercontent.com/M4r10685/TiberioEditionV6/main/TiberioEditionV6.ps1"
+    $url = "https://raw.githubusercontent.com/M4r10685/TiberioEditionV6/main/TiberioEditionV6.ps1"
 
     $risultato = Controlla-Aggiornamenti -Url $url
 
@@ -723,7 +723,7 @@ $BtnControllaAggiornamenti.Add_Click({
     }
     else {
         Write-Log "Aggiornamento disponibile, procedo..."
-        $result = Aggiorna-Script -NuovoContenuto $risultato -PercorsoLocale $MyInvocation.MyCommand.Path
+        $result = Aggiorna-Script -NuovoContenuto $risultato -PercorsoLocale $PSCommandPath
         if ($result -eq "OK") {
             $TxtStatus.Text = "Aggiornamento completato. Riavvia lo script."
         } else {
