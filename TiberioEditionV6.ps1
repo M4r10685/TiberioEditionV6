@@ -808,13 +808,12 @@ $BtnControllaAggiornamenti.Add_Click({
     else {
         Write-Log "Aggiornamento disponibile, procedo..."
 
-        # Usa solo $PSCommandPath — se è vuoto, mostra errore
-        if ($PSCommandPath) {
-            $percorsoLocale = $PSCommandPath
+        # Usa $MyInvocation.MyCommand.Path — se è vuoto, usa il percorso corrente
+        if ($MyInvocation.MyCommand.Path) {
+            $percorsoLocale = $MyInvocation.MyCommand.Path
         } else {
-            Write-Log "Errore: Impossibile determinare il percorso dello script."
-            $TxtStatus.Text = "Errore: Percorso dello script non valido."
-            return
+            $percorsoLocale = Join-Path (Get-Location).Path "TiberioEditionV6.ps1"
+            Write-Log "Avviso: Percorso dello script non determinato. Usato: $percorsoLocale"
         }
 
         $result = Aggiorna-Script -NuovoContenuto $risultato -PercorsoLocale $percorsoLocale
@@ -830,6 +829,7 @@ $BtnControllaAggiornamenti.Add_Click({
         }
     }
 })
+
 $BtnPuliziaBrowser.Add_Click({
     $TxtStatus.Text = "Pulizia browser in corso..."
     Write-Log "Avvio pulizia browser"
