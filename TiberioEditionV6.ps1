@@ -226,7 +226,6 @@ function Chiudi-ProcessiNonNecessari {
         }
     }
 }
-
 function Ottimizza-Ping {
     Write-Log "Ottimizzazione rete per ping basso..."
 
