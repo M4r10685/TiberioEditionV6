@@ -759,7 +759,12 @@ $BtnControllaAggiornamenti.Add_Click({
     }
     else {
         Write-Log "Aggiornamento disponibile, procedo..."
-        $result = Aggiorna-Script -NuovoContenuto $risultato -PercorsoLocale $PSCommandPath
+        # Modifica qui:
+        $scriptPath = Split-Path $MyInvocation.MyCommand.Definition -Parent
+        $scriptFile = Split-Path $MyInvocation.MyCommand.Definition -Leaf
+        $percorsoLocale = Join-Path $scriptPath $scriptFile
+
+        $result = Aggiorna-Script -NuovoContenuto $risultato -PercorsoLocale $percorsoLocale
         if ($result -eq "OK") {
             $TxtStatus.Text = "Aggiornamento completato. Riavvia lo script."
         } else {
@@ -767,6 +772,7 @@ $BtnControllaAggiornamenti.Add_Click({
         }
     }
 })
+
 
 $BtnPuliziaBrowser.Add_Click({
     $TxtStatus.Text = "Pulizia browser in corso..."
