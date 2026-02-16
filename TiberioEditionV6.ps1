@@ -3,7 +3,7 @@ Add-Type -AssemblyName PresentationFramework -ErrorAction Stop
 # ============================
 #   VERSIONE SCRIPT
 # ============================
-$VersioneLocale = "6.0.0"
+$VersioneLocale = "6.1.0"
 
 # ============================
 #   WRITE-LOG (TIBERIO EDITION) - CORRETTA
@@ -573,12 +573,46 @@ function Backup-DriverInKDrive {
 }
 
 # ============================
+#   BACKUP DOCUMENTI IN KDRIVE
+# ============================
+
+function Backup-DocumentiInKDrive {
+    Write-Log "Avvio backup documenti in kDrive..."
+
+    # Percorso kDrive (cartella utente)
+    $kDrivePath = "C:\Users\tiber\kDrive"
+    if (!(Test-Path $kDrivePath)) {
+        Write-Log "Cartella kDrive non trovata: $kDrivePath"
+        return
+    }
+
+    # Percorso Documenti
+    $documentiPath = "$env:USERPROFILE\Documents"
+
+    # Crea cartella backup con data
+    $backupFolder = Join-Path $kDrivePath "backup documenti\Documenti_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
+
+    # Crea la cartella (se non esiste)
+    New-Item -ItemType Directory -Path $backupFolder -ErrorAction SilentlyContinue | Out-Null
+
+    # Usa robocopy per copiare i documenti
+    try {
+        $robocopyCmd = "robocopy `"$documentiPath`" `"$backupFolder`" /E /R:0 /W:0 /LOG+:`"$env:USERPROFILE\Desktop\DocumentiBackup.log`""
+        Write-Log "Eseguo: $robocopyCmd"
+        Invoke-Expression $robocopyCmd
+        Write-Log "Backup documenti completato in: $backupFolder"
+    } catch {
+        Write-Log "Errore durante il backup dei documenti: $($_.Exception.Message)"
+    }
+}
+
+# ============================
 #   GUI XAML
 # ============================
 [xml]$xaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-       Title="Tiberio Edition V6" Height="550" Width="720"
+       Title="Tiberio Edition V6" Height="580" Width="720"
        WindowStartupLocation="CenterScreen"
        Background="#F3F3F3"
        ResizeMode="NoResize">
@@ -618,6 +652,7 @@ function Backup-DriverInKDrive {
                <Button x:Name="BtnOttimizzaRete" Content="Ottimizzazione Rete" Height="32" Margin="0,0,0,6"/>
                <Button x:Name="BtnPuliziaBrowser" Content="Pulizia Browser" Height="32" Margin="0,0,0,6"/>
                <Button x:Name="BtnBackupDriver" Content="Backup Driver in kDrive" Height="32" Margin="0,0,0,6"/>
+               <Button x:Name="BtnBackupDocumenti" Content="Backup Documenti in kDrive" Height="32" Margin="0,0,0,6"/>
                <Button x:Name="BtnEsci" Content="Esci" Height="32" Margin="0,20,0,0"/>
            </StackPanel>
        </Grid>
@@ -651,6 +686,7 @@ $BtnEsci                 = $window.FindName("BtnEsci")
 $BtnControllaAggiornamenti = $window.FindName("BtnControllaAggiornamenti")
 $BtnPuliziaBrowser       = $window.FindName("BtnPuliziaBrowser")
 $BtnBackupDriver         = $window.FindName("BtnBackupDriver")
+$BtnBackupDocumenti      = $window.FindName("BtnBackupDocumenti")
 $TxtStatus               = $window.FindName("TxtStatus")
 
 # ============================
@@ -747,6 +783,13 @@ $BtnBackupDriver.Add_Click({
     Write-Log "Avvio backup driver"
     Backup-DriverInKDrive
     $TxtStatus.Text = "Backup driver completato."
+})
+
+$BtnBackupDocumenti.Add_Click({
+    $TxtStatus.Text = "Backup documenti in corso..."
+    Write-Log "Avvio backup documenti"
+    Backup-DocumentiInKDrive
+    $TxtStatus.Text = "Backup documenti completato."
 })
 
 $BtnEsci.Add_Click({
