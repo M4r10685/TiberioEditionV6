@@ -808,9 +808,9 @@ $BtnControllaAggiornamenti.Add_Click({
     else {
         Write-Log "Aggiornamento disponibile, procedo..."
 
-        # Usa $MyInvocation.MyCommand.Path — se è vuoto, usa il percorso corrente
-        if ($MyInvocation.MyCommand.Path) {
-            $percorsoLocale = $MyInvocation.MyCommand.Path
+        # Usa $MyInvocation.MyCommand.Definition — se è vuoto, usa il percorso corrente
+        if ($MyInvocation.MyCommand.Definition) {
+            $percorsoLocale = $MyInvocation.MyCommand.Definition
         } else {
             $percorsoLocale = Join-Path (Get-Location).Path "TiberioEditionV6.ps1"
             Write-Log "Avviso: Percorso dello script non determinato. Usato: $percorsoLocale"
