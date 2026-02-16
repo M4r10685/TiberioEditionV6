@@ -759,10 +759,21 @@ $BtnControllaAggiornamenti.Add_Click({
     }
     else {
         Write-Log "Aggiornamento disponibile, procedo..."
-        # Modifica qui:
-        $scriptPath = Split-Path $MyInvocation.MyCommand.Definition -Parent
-        $scriptFile = Split-Path $MyInvocation.MyCommand.Definition -Leaf
-        $percorsoLocale = Join-Path $scriptPath $scriptFile
+
+        # 🔧 Fallback sicuro per $PSCommandPath e $MyInvocation
+        if ($PSCommandPath) {
+            $percorsoLocale = $PSCommandPath
+        } else {
+            if ($MyInvocation.MyCommand.Definition) {
+                $scriptPath = Split-Path $MyInvocation.MyCommand.Definition -Parent
+                $scriptFile = Split-Path $MyInvocation.MyCommand.Definition -Leaf
+                $percorsoLocale = Join-Path $scriptPath $scriptFile
+            } else {
+                Write-Log "Errore: Impossibile determinare il percorso dello script."
+                $TxtStatus.Text = "Errore: Percorso dello script non valido."
+                return
+            }
+        }
 
         $result = Aggiorna-Script -NuovoContenuto $risultato -PercorsoLocale $percorsoLocale
         if ($result -eq "OK") {
