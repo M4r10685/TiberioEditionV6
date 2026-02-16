@@ -134,6 +134,13 @@ function Aggiorna-Script {
 
     Write-Log "Aggiornamento script locale..."
 
+    # Controlla se $PercorsoLocale è vuoto
+    if ([string]::IsNullOrEmpty($PercorsoLocale)) {
+        Write-Log "Errore: Percorso locale non valido."
+        return "Errore"
+    }
+
+    # Controlla se il file esiste
     if (!(Test-Path $PercorsoLocale)) {
         Write-Log "Percorso script non trovato: $PercorsoLocale"
         return "Errore"
