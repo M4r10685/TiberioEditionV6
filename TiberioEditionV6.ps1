@@ -806,12 +806,18 @@ $BtnControllaAggiornamenti.Add_Click({
     else {
         Write-Log "Aggiornamento disponibile, procedo..."
 
-        if ($MyInvocation.MyCommand.Definition) {
-            $percorsoLocale = $MyInvocation.MyCommand.Definition
-        } else {
-            $percorsoLocale = Join-Path (Get-Location).Path "TiberioEditionV6.ps1"
-            Write-Log "Avviso: Percorso dello script non determinato. Usato: $percorsoLocale"
-        }
+       if ($MyInvocation.MyCommand.Definition) {
+    $percorsoLocale = $MyInvocation.MyCommand.Definition
+} else {
+    # Usa il percorso della cartella corrente dello script (se esiste)
+    $percorsoLocale = Join-Path $PSScriptRoot "TiberioEditionV6.ps1"
+    if (!(Test-Path $percorsoLocale)) {
+        # Se non esiste, prova con il percorso della cartella di esecuzione
+        $percorsoLocale = Join-Path (Get-Location).Path "TiberioEditionV6.ps1"
+        Write-Log "Avviso: Percorso dello script non determinato. Usato: $percorsoLocale"
+    }
+}
+
 
         $result = Aggiorna-Script -NuovoContenuto $risultato -PercorsoLocale $percorsoLocale
         if ($result -eq "OK") {
