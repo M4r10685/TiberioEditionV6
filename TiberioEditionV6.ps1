@@ -1,4 +1,3 @@
-
 Add-Type -AssemblyName PresentationFramework -ErrorAction Stop
 
 # ============================
@@ -80,12 +79,51 @@ function Clean-Path {
 }
 
 # ============================
-#   AUTO-UPDATE V6 (NON ATTIVO - SOLO PULSANTE)
+#   AUTO-UPDATE V6 (DA GITHUB)
 # ============================
 
+function Get-RemoteScriptContent {
+    param([string]$Url)
+
+    Write-Log "Download contenuto remoto da GitHub..."
+
+    try {
+        $contenuto = Invoke-WebRequest -Uri $Url -UseBasicParsing -ErrorAction Stop
+        Write-Log "Contenuto remoto scaricato correttamente"
+        return $contenuto.Content
+    }
+    catch {
+        Write-Log "Errore durante il download del contenuto remoto: $($_.Exception.Message)"
+        return $null
+    }
+}
+
 function Controlla-Aggiornamenti {
-    Write-Log "Controlla aggiornamenti (non attivo)"
-    return "OK"
+    param([string]$Url)
+
+    Write-Log "Controllo aggiornamenti da GitHub..."
+
+    $contenuto = Get-RemoteScriptContent -Url $Url
+    if (-not $contenuto) {
+        Write-Log "Nessun contenuto remoto trovato"
+        return "Errore"
+    }
+
+    if ($contenuto -match '\$VersioneLocale\s*=\s*"([^"]+)"') {
+        $VersioneRemota = $matches[1]
+        Write-Log "Versione remota trovata: $VersioneRemota"
+    } else {
+        Write-Log "Impossibile leggere la versione remota"
+        return "Errore"
+    }
+
+    if ($VersioneRemota -ne $VersioneLocale) {
+        Write-Log "Nuova versione disponibile: $VersioneRemota"
+        return $contenuto
+    } else {
+        Write-Log "La versione è già aggiornata"
+        return "OK"
+    }
 }
 
 function Aggiorna-Script {
@@ -93,8 +131,23 @@ function Aggiorna-Script {
         [string]$NuovoContenuto,
         [string]$PercorsoLocale
     )
-    Write-Log "Aggiornamento non attivo"
-    return "OK"
+
+    Write-Log "Aggiornamento script locale..."
+
+    if (!(Test-Path $PercorsoLocale)) {
+        Write-Log "Percorso script non trovato: $PercorsoLocale"
+        return "Errore"
+    }
+
+    try {
+        $NuovoContenuto | Out-File -FilePath $PercorsoLocale -Encoding UTF8 -Force -ErrorAction Stop
+        Write-Log "Aggiornamento completato"
+        return "OK"
+    }
+    catch {
+        Write-Log "Errore durante l'aggiornamento: $($_.Exception.Message)"
+        return "Errore"
+    }
 }
 
 # ============================
@@ -128,7 +181,7 @@ function Chiudi-ProcessiNonNecessari {
     $processiDaChiudere = @(
         "chrome", "firefox", "edge", "brave", "opera",
         "teams", "skype", "zoom", "spotify",
-        "vlc", "steam", "uplay", "origin", "epicgameslauncher",
+        "vlc", "uplay", "origin", "epicgameslauncher",
         "onenote", "outlook", "word", "excel", "powerpoint",
         "winamp", "audacity", "anydesk", "teamviewer"
     )
@@ -143,7 +196,9 @@ function Chiudi-ProcessiNonNecessari {
                 }
             }
         } catch {
-            Write-Log "Impossibile chiudere $procName: $($_.Exception.Message)"
+            $errorMessage = $PSItem.Exception.Message
+            $fullMessage = "Impossibile chiudere $procName - $errorMessage"
+            Write-Log $fullMessage
         }
     }
 }
@@ -162,7 +217,9 @@ function Ottimizza-Ping {
         Stop-Service "DiagTrack" -Force -ErrorAction SilentlyContinue
         Set-Service "DiagTrack" -StartupType Disabled -ErrorAction SilentlyContinue
     } catch {
-        Write-Log "Errore durante l'ottimizzazione dei servizi: $($_.Exception.Message)"
+        $errorMessage = $PSItem.Exception.Message
+        $fullMessage = "Errore durante l'ottimizzazione dei servizi - $errorMessage"
+        Write-Log $fullMessage
     }
 
     # Ottimizzazione TCP (ping basso)
@@ -173,7 +230,9 @@ function Ottimizza-Ping {
         netsh int tcp set heuristics disabled | Out-Null
         Write-Log "Ottimizzazione TCP per ping basso completata."
     } catch {
-        Write-Log "Errore durante l'ottimizzazione TCP: $($_.Exception.Message)"
+        $errorMessage = $PSItem.Exception.Message
+        $fullMessage = "Errore durante l'ottimizzazione TCP - $errorMessage"
+        Write-Log $fullMessage
     }
 
     # Priorità CPU per ETS2
@@ -184,7 +243,9 @@ function Ottimizza-Ping {
             Write-Log "Priorità CPU impostata su High per eurotrucks2"
         }
     } catch {
-        Write-Log "Impossibile impostare priorità CPU: $($_.Exception.Message)"
+        $errorMessage = $PSItem.Exception.Message
+        $fullMessage = "Impossibile impostare priorità CPU - $errorMessage"
+        Write-Log $fullMessage
     }
 }
 
@@ -202,7 +263,9 @@ function Ripristina-ProcessiERete {
         Set-Service "DiagTrack" -StartupType Automatic -ErrorAction SilentlyContinue
         Start-Service "DiagTrack" -ErrorAction SilentlyContinue
     } catch {
-        Write-Log "Errore durante il ripristino dei servizi: $($_.Exception.Message)"
+        $errorMessage = $PSItem.Exception.Message
+        $fullMessage = "Errore durante il ripristino dei servizi - $errorMessage"
+        Write-Log $fullMessage
     }
 
     # Ripristino TCP
@@ -213,7 +276,9 @@ function Ripristina-ProcessiERete {
         netsh int tcp set heuristics enabled | Out-Null
         Write-Log "Ripristino TCP completato."
     } catch {
-        Write-Log "Errore durante il ripristino TCP: $($_.Exception.Message)"
+        $errorMessage = $PSItem.Exception.Message
+        $fullMessage = "Errore durante il ripristino TCP - $errorMessage"
+        Write-Log $fullMessage
     }
 
     # Ripristino priorità CPU
@@ -222,7 +287,9 @@ function Ripristina-ProcessiERete {
         if ($proc) { $proc.PriorityClass = "Normal" }
         Write-Log "Priorità CPU ripristinata a Normal per explorer"
     } catch {
-        Write-Log "Impossibile ripristinare priorità CPU: $($_.Exception.Message)"
+        $errorMessage = $PSItem.Exception.Message
+        $fullMessage = "Impossibile ripristinare priorità CPU - $errorMessage"
+        Write-Log $fullMessage
     }
 }
 
@@ -363,7 +430,9 @@ function Pulisci-Chrome {
                 Remove-Item $itemPath -Recurse -Force -ErrorAction Stop
                 Write-Log "Eliminato: $itemPath"
             } catch {
-                Write-Log "Impossibile eliminare: $itemPath - $($_.Exception.Message)"
+                $errorMessage = $PSItem.Exception.Message
+                $fullMessage = "Impossibile eliminare: $itemPath - $errorMessage"
+                Write-Log $fullMessage
             }
         }
     }
@@ -397,7 +466,9 @@ function Pulisci-Edge {
                 Remove-Item $itemPath -Recurse -Force -ErrorAction Stop
                 Write-Log "Eliminato: $itemPath"
             } catch {
-                Write-Log "Impossibile eliminare: $itemPath - $($_.Exception.Message)"
+                $errorMessage = $PSItem.Exception.Message
+                $fullMessage = "Impossibile eliminare: $itemPath - $errorMessage"
+                Write-Log $fullMessage
             }
         }
     }
@@ -431,7 +502,9 @@ function Pulisci-Brave {
                 Remove-Item $itemPath -Recurse -Force -ErrorAction Stop
                 Write-Log "Eliminato: $itemPath"
             } catch {
-                Write-Log "Impossibile eliminare: $itemPath - $($_.Exception.Message)"
+                $errorMessage = $PSItem.Exception.Message
+                $fullMessage = "Impossibile eliminare: $itemPath - $errorMessage"
+                Write-Log $fullMessage
             }
         }
     }
@@ -452,7 +525,9 @@ function Pulisci-Norton {
         Remove-Item $nortonPath -Recurse -Force -ErrorAction Stop
         Write-Log "Pulizia Norton Safe Web completata."
     } catch {
-        Write-Log "Impossibile eliminare Norton Safe Web: $($_.Exception.Message)"
+        $errorMessage = $PSItem.Exception.Message
+        $fullMessage = "Impossibile eliminare Norton Safe Web - $errorMessage"
+        Write-Log $fullMessage
     }
 }
 
@@ -484,7 +559,9 @@ function Backup-DriverInKDrive {
         Invoke-Expression $robocopyCmd
         Write-Log "Backup driver completato in: $backupFolder"
     } catch {
-        Write-Log "Errore durante il backup dei driver: $($_.Exception.Message)"
+        $errorMessage = $PSItem.Exception.Message
+        $fullMessage = "Errore durante il backup dei driver - $errorMessage"
+        Write-Log $fullMessage
     }
 }
 
@@ -626,11 +703,25 @@ $BtnOttimizzaRete.Add_Click({
 $BtnControllaAggiornamenti.Add_Click({
     $TxtStatus.Text = "Controllo aggiornamenti..."
     Write-Log "Avvio controllo aggiornamenti"
-    $risultato = Controlla-Aggiornamenti
+
+  $url = "https://raw.githubusercontent.com/M4r10685/TiberioEditionV6/main/TiberioEditionV6.ps1"
+
+    $risultato = Controlla-Aggiornamenti -Url $url
+
     if ($risultato -eq "OK") {
         $TxtStatus.Text = "La versione è già aggiornata."
-    } else {
+    }
+    elseif ($risultato -eq "Errore") {
         $TxtStatus.Text = "Errore durante il controllo aggiornamenti."
+    }
+    else {
+        Write-Log "Aggiornamento disponibile, procedo..."
+        $result = Aggiorna-Script -NuovoContenuto $risultato -PercorsoLocale $MyInvocation.MyCommand.Path
+        if ($result -eq "OK") {
+            $TxtStatus.Text = "Aggiornamento completato. Riavvia lo script."
+        } else {
+            $TxtStatus.Text = "Errore durante l'aggiornamento."
+        }
     }
 })
 
