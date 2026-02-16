@@ -164,13 +164,31 @@ function Aggiorna-Script {
 function Pulizia-Base {
     Write-Log "Esecuzione Pulizia-Base"
     $tot = 0
+
+    # Inizia la progress bar
+    Update-ProgressBar -Value 10 -Status "Pulizia TEMP utente..."
+
     $tot += Clean-Path -Path "$env:TEMP" -Descrizione "TEMP utente"
+    Update-ProgressBar -Value 20 -Status "Pulizia TEMP sistema..."
+
     $tot += Clean-Path -Path "$env:WINDIR\Temp" -Descrizione "TEMP sistema"
+    Update-ProgressBar -Value 30 -Status "Pulizia Cache Windows Update..."
+
     $tot += Clean-Path -Path "$env:WINDIR\SoftwareDistribution\Download" -Descrizione "Cache Windows Update"
+    Update-ProgressBar -Value 40 -Status "Pulizia Log Windows..."
+
     $tot += Clean-Path -Path "$env:WINDIR\Logs" -Descrizione "Log Windows" -OldOnly -Days 7
+    Update-ProgressBar -Value 50 -Status "Pulizia CrashDumps..."
+
     $tot += Clean-Path -Path "$env:LOCALAPPDATA\CrashDumps" -Descrizione "CrashDumps" -OldOnly -Days 7
+    Update-ProgressBar -Value 60 -Status "Pulizia Prefetch..."
+
     $tot += Clean-Path -Path "$env:WINDIR\Prefetch" -Descrizione "Prefetch" -OldOnly -Days 10
+    Update-ProgressBar -Value 80 -Status "Svuotamento Cestino..."
+
     try { Clear-RecycleBin -Force -ErrorAction SilentlyContinue } catch {}
+    Update-ProgressBar -Value 100 -Status "Pulizia Base completata."
+
     return $tot
 }
 
@@ -659,7 +677,10 @@ function Backup-DocumentiInKDrive {
 
        <StatusBar Grid.Row="2" Margin="0,10,0,0">
            <StatusBarItem>
-               <TextBlock x:Name="TxtStatus" Text="Pronto."/>
+               <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                   <TextBlock x:Name="TxtStatus" Text="Pronto." Margin="0,0,10,0"/>
+                   <ProgressBar x:Name="ProgressBar" Width="200" Height="10" Minimum="0" Maximum="100" Value="0" Visibility="Collapsed"/>
+               </StackPanel>
            </StatusBarItem>
        </StatusBar>
    </Grid>
@@ -688,6 +709,26 @@ $BtnPuliziaBrowser       = $window.FindName("BtnPuliziaBrowser")
 $BtnBackupDriver         = $window.FindName("BtnBackupDriver")
 $BtnBackupDocumenti      = $window.FindName("BtnBackupDocumenti")
 $TxtStatus               = $window.FindName("TxtStatus")
+$ProgressBar             = $window.FindName("ProgressBar")
+
+# ============================
+#   FUNZIONE: UPDATE PROGRESS BAR
+# ============================
+function Update-ProgressBar {
+    param([int]$Value, [string]$Status = "")
+
+    # Esegui l'aggiornamento sul thread della GUI
+    $window.Dispatcher.Invoke({
+        if ($Value -gt 0) {
+            $ProgressBar.Value = $Value
+            $ProgressBar.Visibility = "Visible"
+            $TxtStatus.Text = $Status
+        } else {
+            $ProgressBar.Visibility = "Collapsed"
+            $TxtStatus.Text = $Status
+        }
+    }, "Background")
+}
 
 # ============================
 #   HANDLER PULSANTI
@@ -695,52 +736,59 @@ $TxtStatus               = $window.FindName("TxtStatus")
 $BtnPuliziaBase.Add_Click({
     $TxtStatus.Text = "Esecuzione Pulizia Base..."
     Write-Log "Avvio Pulizia Base"
+    Update-ProgressBar -Value 10 -Status "Pulizia TEMP utente..."
     $freed = Pulizia-Base
     $MB = [math]::Round($freed / 1MB, 2)
-    $TxtStatus.Text = "Pulizia Base completata. Liberati $MB MB."
+    Update-ProgressBar -Value 100 -Status "Pulizia Base completata. Liberati $MB MB."
 })
 
 $BtnPuliziaGaming.Add_Click({
     $TxtStatus.Text = "Esecuzione Pulizia Gaming..."
     Write-Log "Avvio Pulizia Gaming"
+    Update-ProgressBar -Value 10 -Status "Pulizia Gaming in corso..."
     $freed = Pulizia-Gaming
     $MB = [math]::Round($freed / 1MB, 2)
-    $TxtStatus.Text = "Pulizia Gaming completata. Liberati $MB MB."
+    Update-ProgressBar -Value 100 -Status "Pulizia Gaming completata. Liberati $MB MB."
 })
 
 $BtnManutenzioneCompleta.Add_Click({
     $TxtStatus.Text = "Manutenzione Completa Avanzata in corso..."
     Write-Log "Avvio Manutenzione Completa Avanzata V6"
+    Update-ProgressBar -Value 10 -Status "Manutenzione Completa in corso..."
     Manutenzione-Completa
-    $TxtStatus.Text = "Manutenzione Completa Avanzata completata."
+    Update-ProgressBar -Value 100 -Status "Manutenzione Completa Avanzata completata."
 })
 
 $BtnRiparazioneSistema.Add_Click({
     $TxtStatus.Text = "Riparazione sistema in corso..."
     Write-Log "Avvio Riparazione Sistema V6"
+    Update-ProgressBar -Value 10 -Status "Riparazione sistema in corso..."
     Ripara-Sistema
-    $TxtStatus.Text = "Riparazione sistema completata."
+    Update-ProgressBar -Value 100 -Status "Riparazione sistema completata."
 })
 
 $BtnGamingBoost.Add_Click({
     $TxtStatus.Text = "Gaming Boost in corso..."
     Write-Log "Avvio Gaming Boost V6"
+    Update-ProgressBar -Value 10 -Status "Gaming Boost in corso..."
     Gaming-Boost
-    $TxtStatus.Text = "Gaming Boost completato."
+    Update-ProgressBar -Value 100 -Status "Gaming Boost completato."
 })
 
 $BtnGamingBoostPlus.Add_Click({
     $TxtStatus.Text = "Gaming Boost PLUS in corso..."
     Write-Log "Avvio Gaming Boost PLUS V6"
+    Update-ProgressBar -Value 10 -Status "Gaming Boost PLUS in corso..."
     Gaming-BoostPlus
-    $TxtStatus.Text = "Gaming Boost PLUS completato."
+    Update-ProgressBar -Value 100 -Status "Gaming Boost PLUS completato."
 })
 
 $BtnOttimizzaRete.Add_Click({
     $TxtStatus.Text = "Ottimizzazione rete in corso..."
     Write-Log "Avvio Ottimizzazione Rete"
+    Update-ProgressBar -Value 10 -Status "Ottimizzazione rete in corso..."
     Ottimizza-Rete
-    $TxtStatus.Text = "Ottimizzazione rete completata."
+    Update-ProgressBar -Value 100 -Status "Ottimizzazione rete completata."
 })
 
 $BtnControllaAggiornamenti.Add_Click({
@@ -759,8 +807,7 @@ $BtnControllaAggiornamenti.Add_Click({
     }
     else {
         Write-Log "Aggiornamento disponibile, procedo..."
-
-        # 🔧 Fallback sicuro per $PSCommandPath e $MyInvocation
+        # Usa $PSCommandPath con fallback
         if ($PSCommandPath) {
             $percorsoLocale = $PSCommandPath
         } else {
@@ -778,38 +825,49 @@ $BtnControllaAggiornamenti.Add_Click({
         $result = Aggiorna-Script -NuovoContenuto $risultato -PercorsoLocale $percorsoLocale
         if ($result -eq "OK") {
             $TxtStatus.Text = "Aggiornamento completato. Riavvia lo script."
+            # Riavvia la GUI dopo l'aggiornamento
+            Update-ProgressBar -Value 100 -Status "Aggiornamento completato. Riavvio in corso..."
+            Start-Sleep -Seconds 2
+            $window.Close()
+            Start-Process powershell -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$percorsoLocale`"
         } else {
             $TxtStatus.Text = "Errore durante l'aggiornamento."
         }
     }
 })
 
-
 $BtnPuliziaBrowser.Add_Click({
     $TxtStatus.Text = "Pulizia browser in corso..."
     Write-Log "Avvio pulizia browser"
+    Update-ProgressBar -Value 10 -Status "Pulizia Chrome in corso..."
     Pulisci-Chrome
+    Update-ProgressBar -Value 30 -Status "Pulizia Edge in corso..."
     Pulisci-Edge
+    Update-ProgressBar -Value 60 -Status "Pulizia Brave in corso..."
     Pulisci-Brave
+    Update-ProgressBar -Value 80 -Status "Pulizia Norton in corso..."
     Pulisci-Norton
-    $TxtStatus.Text = "Pulizia browser completata."
+    Update-ProgressBar -Value 100 -Status "Pulizia browser completata."
 })
 
 $BtnBackupDriver.Add_Click({
     $TxtStatus.Text = "Backup driver in corso..."
     Write-Log "Avvio backup driver"
+    Update-ProgressBar -Value 10 -Status "Backup driver in corso..."
     Backup-DriverInKDrive
-    $TxtStatus.Text = "Backup driver completato."
+    Update-ProgressBar -Value 100 -Status "Backup driver completato."
 })
 
 $BtnBackupDocumenti.Add_Click({
     $TxtStatus.Text = "Backup documenti in corso..."
     Write-Log "Avvio backup documenti"
+    Update-ProgressBar -Value 10 -Status "Backup documenti in corso..."
     Backup-DocumentiInKDrive
-    $TxtStatus.Text = "Backup documenti completato."
+    Update-ProgressBar -Value 100 -Status "Backup documenti completato."
 })
 
 $BtnEsci.Add_Click({
+    Update-ProgressBar -Value 0 -Status "Pronto."
     $window.Close()
 })
 
