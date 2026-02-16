@@ -825,7 +825,7 @@ $BtnControllaAggiornamenti.Add_Click({
             $window.Close()
             Start-Process powershell -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$percorsoLocale`"
         } else {
-            $TxtStatus.Text = "Errore durante l'aggiornamento."
+            $TxtStatus.Text = "Errore durante l''aggiornamento."  # ← CORREZIONE QUI
         }
     }
 })
