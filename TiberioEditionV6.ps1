@@ -221,9 +221,8 @@ function Chiudi-ProcessiNonNecessari {
                 }
             }
         } catch {
-            $errorMessage = $PSItem.Exception.Message
-            $fullMessage = "Impossibile chiudere $procName - $errorMessage"
-            Write-Log $fullMessage
+            $errorMessage = $($_.Exception.Message -replace '"', '""')
+            Write-Log "Impossibile chiudere $procName - $errorMessage"
         }
     }
 }
