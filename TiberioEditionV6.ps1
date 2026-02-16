@@ -1,12 +1,12 @@
 Add-Type -AssemblyName PresentationFramework -ErrorAction Stop
 
 # ============================
-#   VERSIONE SCRIPT
+#   VERSIONE SCRIPT
 # ============================
 $VersioneLocale = "6.1.0"
 
 # ============================
-#   WRITE-LOG (TIBERIO EDITION) - CORRETTA
+#   WRITE-LOG (TIBERIO EDITION) - CORRETTA
 # ============================
 function Write-Log {
     param([string]$msg)
@@ -25,7 +25,7 @@ function Write-Log {
 }
 
 # ============================
-#   CLEAN-PATH (TIBERIO EDITION) - CORRETTA
+#   CLEAN-PATH (TIBERIO EDITION) - CORRETTA
 # ============================
 function Clean-Path {
     param(
@@ -79,7 +79,7 @@ function Clean-Path {
 }
 
 # ============================
-#   AUTO-UPDATE V6 (DA GITHUB)
+#   AUTO-UPDATE V6 (DA GITHUB)
 # ============================
 
 function Get-RemoteScriptContent {
@@ -158,7 +158,7 @@ function Aggiorna-Script {
 }
 
 # ============================
-#   FUNZIONI OPERATIVE REALI
+#   FUNZIONI OPERATIVE REALI
 # ============================
 
 function Pulizia-Base {
@@ -198,7 +198,7 @@ function Ripara-Sistema { Write-Log "Riparazione Sistema (placeholder)" }
 function Gaming-Boost { Write-Log "Gaming Boost (placeholder)" }
 
 # ============================
-#   GAMING-BOOSTPLUS - CORRETTA (CHIUSURA PROCESSI, OTTIMIZZAZIONE PING, RIPRISTINO)
+#   GAMING-BOOSTPLUS - CORRETTA (CHIUSURA PROCESSI, OTTIMIZZAZIONE PING, RIPRISTINO)
 # ============================
 function Chiudi-ProcessiNonNecessari {
     Write-Log "Chiusura processi non necessari per gaming..."
@@ -325,7 +325,7 @@ function Gaming-BoostPlus {
 }
 
 # ============================
-#   RIPRISTINO-COMPLETO - CORRETTO
+#   RIPRISTINO-COMPLETO - CORRETTO
 # ============================
 function Ripristino-Completo {
     Write-Log "Ripristino completo automatico avviato"
@@ -391,7 +391,7 @@ function Ripristino-Completo {
 function Ottimizza-Rete { Write-Log "Ottimizzazione rete (placeholder)" }
 
 # ============================
-#   AUTO-GAMING-BOOST (ETS2)
+#   AUTO-GAMING-BOOST (ETS2)
 # ============================
 
 $global:GamingBoostAttivo = $false
@@ -424,7 +424,7 @@ $timer.Add_Tick({
 })
 
 # ============================
-#   PULIZIA BROWSER
+#   PULIZIA BROWSER
 # ============================
 
 function Pulisci-Chrome {
@@ -555,7 +555,7 @@ function Pulisci-Norton {
 }
 
 # ============================
-#   BACKUP DRIVER IN KDRIVE
+#   BACKUP DRIVER IN KDRIVE
 # ============================
 
 function Backup-DriverInKDrive {
@@ -589,7 +589,7 @@ function Backup-DriverInKDrive {
 }
 
 # ============================
-#   BACKUP DOCUMENTI IN KDRIVE
+#   BACKUP DOCUMENTI IN KDRIVE
 # ============================
 
 function Backup-DocumentiInKDrive {
@@ -623,7 +623,7 @@ function Backup-DocumentiInKDrive {
 }
 
 # ============================
-#   GUI XAML
+#   GUI XAML
 # ============================
 [xml]$xaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -686,13 +686,13 @@ function Backup-DocumentiInKDrive {
 "@
 
 # ============================
-#   PARSING XAML
+#   PARSING XAML
 # ============================
 $reader = (New-Object System.Xml.XmlNodeReader $xaml)
 $window = [Windows.Markup.XamlReader]::Load($reader)
 
 # ============================
-#   RIFERIMENTI CONTROLLI
+#   RIFERIMENTI CONTROLLI
 # ============================
 $BtnPuliziaBase            = $window.FindName("BtnPuliziaBase")
 $BtnPuliziaGaming          = $window.FindName("BtnPuliziaGaming")
@@ -710,7 +710,7 @@ $TxtStatus               = $window.FindName("TxtStatus")
 $ProgressBar             = $window.FindName("ProgressBar")
 
 # ============================
-#   FUNZIONE: UPDATE PROGRESS BAR
+#   FUNZIONE: UPDATE PROGRESS BAR
 # ============================
 function Update-ProgressBar {
     param([int]$Value, [string]$Status = "")
@@ -729,7 +729,7 @@ function Update-ProgressBar {
 }
 
 # ============================
-#   HANDLER PULSANTI
+#   HANDLER PULSANTI
 # ============================
 $BtnPuliziaBase.Add_Click({
     $TxtStatus.Text = "Esecuzione Pulizia Base..."
@@ -806,7 +806,6 @@ $BtnControllaAggiornamenti.Add_Click({
     else {
         Write-Log "Aggiornamento disponibile, procedo..."
 
-        # Usa $MyInvocation.MyCommand.Definition — se è vuoto, usa il percorso corrente
         if ($MyInvocation.MyCommand.Definition) {
             $percorsoLocale = $MyInvocation.MyCommand.Definition
         } else {
@@ -817,13 +816,12 @@ $BtnControllaAggiornamenti.Add_Click({
         $result = Aggiorna-Script -NuovoContenuto $risultato -PercorsoLocale $percorsoLocale
         if ($result -eq "OK") {
             $TxtStatus.Text = "Aggiornamento completato. Riavvia lo script."
-            # Riavvia la GUI dopo l'aggiornamento
             Update-ProgressBar -Value 100 -Status "Aggiornamento completato. Riavvio in corso..."
             Start-Sleep -Seconds 2
             $window.Close()
-            Start-Process powershell -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$percorsoLocale`"
+            Start-Process powershell -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$percorsoLocale`""
         } else {
-            $TxtStatus.Text = "Errore durante l''aggiornamento."  # ← CORREZIONE QUI
+            $TxtStatus.Text = "Errore durante l'aggiornamento."
         }
     }
 })
@@ -864,7 +862,7 @@ $BtnEsci.Add_Click({
 })
 
 # ============================
-#   AVVIO GUI
+#   AVVIO GUI
 # ============================
 Write-Log "Avvio Tiberio Edition V6 GUI..."
 $timer.Start()
