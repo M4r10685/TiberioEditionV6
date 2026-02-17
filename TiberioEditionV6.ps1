@@ -1,9 +1,14 @@
 Add-Type -AssemblyName PresentationFramework -ErrorAction Stop
 
 # ============================
-#   VERSIONE SCRIPT
+#   VERSIONE SCRIPT (AGGIORNATA PER TRIGGERARE L'AGGIORNAMENTO)
 # ============================
-$VersioneLocale = "6.1.0"
+$VersioneLocale = "6.2.0"
+
+# ============================
+#   MODALITÀ AGGRESSIVE OPTIMIZATIONS (imposta a $false se danno problemi)
+# ============================
+$global:AggressiveOptimizations = $true  # Cambia a $false se noti instabilità
 
 # ============================
 #   WRITE-LOG (TIBERIO EDITION) - CORRETTA
@@ -144,6 +149,15 @@ function Aggiorna-Script {
     if (!(Test-Path $PercorsoLocale)) {
         Write-Log "Percorso script non trovato: $PercorsoLocale"
         return "Errore"
+    }
+
+    # Crea backup del file corrente
+    $backupPath = "$PercorsoLocale.bak"
+    try {
+        Copy-Item $PercorsoLocale $backupPath -Force -ErrorAction Stop
+        Write-Log "Backup creato: $backupPath"
+    } catch {
+        Write-Log "Errore durante la creazione del backup: $($_.Exception.Message)"
     }
 
     try {
@@ -391,7 +405,389 @@ function Ripristino-Completo {
 function Ottimizza-Rete { Write-Log "Ottimizzazione rete (placeholder)" }
 
 # ============================
-#   AUTO-GAMING-BOOST (ETS2)
+#   OTTIMIZZAZIONE REGISTRO GAMING (INTEGRATA)
+# ============================
+
+function Ottimizza-RegistroGaming {
+    Write-Log "Avvio ottimizzazione registro per gaming..."
+
+    # Backup chiavi originali (in memoria)
+    $global:BackupTcpip = Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" -Name "TcpAckFrequency", "TCPNoDelay", "TcpDelAckTicks" -ErrorAction SilentlyContinue
+    $global:BackupSystemProfile = Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" -Name "NetworkThrottlingIndex", "SystemResponsiveness" -ErrorAction SilentlyContinue
+    $global:BackupPriority = Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\PriorityControl" -Name "Win32PrioritySeparation" -ErrorAction SilentlyContinue
+
+    # Ottimizzazioni TCP/IP
+    try {
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" -Name "TcpAckFrequency" -Value 1 -Type DWord -ErrorAction Stop
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" -Name "TCPNoDelay" -Value 1 -Type DWord -ErrorAction Stop
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" -Name "TcpDelAckTicks" -Value 0 -Type DWord -ErrorAction Stop
+        Write-Log "Ottimizzazioni TCP/IP applicate."
+    } catch {
+        Write-Log "Errore durante l'ottimizzazione TCP/IP: $($_.Exception.Message)"
+    }
+
+    # Ottimizzazioni Multimedia SystemProfile
+    try {
+        Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" -Name "NetworkThrottlingIndex" -Value 0xffffffff -Type DWord -ErrorAction Stop
+        Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" -Name "SystemResponsiveness" -Value 0 -Type DWord -ErrorAction Stop
+        Write-Log "Ottimizzazioni multimediale applicate."
+    } catch {
+        Write-Log "Errore durante l'ottimizzazione multimediale: $($_.Exception.Message)"
+    }
+
+    # Priorità processo
+    try {
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\PriorityControl" -Name "Win32PrioritySeparation" -Value 26 -Type DWord -ErrorAction Stop
+        Write-Log "Priorità processo ottimizzata."
+    } catch {
+        Write-Log "Errore durante l'ottimizzazione priorità: $($_.Exception.Message)"
+    }
+
+    Write-Log "Ottimizzazione registro gaming completata. Effetti immediati (non richiede riavvio)."
+}
+
+function Ripristina-RegistroGaming {
+    Write-Log "Ripristino impostazioni registro originali..."
+
+    # Ripristina TCP/IP
+    if ($global:BackupTcpip) {
+        try {
+            Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" -Name "TcpAckFrequency" -Value $global:BackupTcpip.TcpAckFrequency -Type DWord -ErrorAction Stop
+            Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" -Name "TCPNoDelay" -Value $global:BackupTcpip.TCPNoDelay -Type DWord -ErrorAction Stop
+            Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" -Name "TcpDelAckTicks" -Value $global:BackupTcpip.TcpDelAckTicks -Type DWord -ErrorAction Stop
+            Write-Log "Ripristino TCP/IP completato."
+        } catch {
+            Write-Log "Errore durante il ripristino TCP/IP: $($_.Exception.Message)"
+        }
+    }
+
+    # Ripristina Multimedia SystemProfile
+    if ($global:BackupSystemProfile) {
+        try {
+            Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" -Name "NetworkThrottlingIndex" -Value $global:BackupSystemProfile.NetworkThrottlingIndex -Type DWord -ErrorAction Stop
+            Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" -Name "SystemResponsiveness" -Value $global:BackupSystemProfile.SystemResponsiveness -Type DWord -ErrorAction Stop
+            Write-Log "Ripristino multimediale completato."
+        } catch {
+            Write-Log "Errore durante il ripristino multimediale: $($_.Exception.Message)"
+        }
+    }
+
+    # Ripristina Priorità
+    if ($global:BackupPriority) {
+        try {
+            Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\PriorityControl" -Name "Win32PrioritySeparation" -Value $global:BackupPriority.Win32PrioritySeparation -Type DWord -ErrorAction Stop
+            Write-Log "Ripristino priorità completato."
+        } catch {
+            Write-Log "Errore durante il ripristino priorità: $($_.Exception.Message)"
+        }
+    }
+
+    Write-Log "Ripristino registro gaming completato."
+}
+
+# ============================
+#   OTTIMIZZAZIONE 5G NSA EXTREME + QoS ANTI-BUFFERBLOAT
+# ============================
+
+function Ottimizza-5GNSA {
+    Write-Log "Avvio ottimizzazioni 5G NSA EXTREME + QoS Anti-Bufferbloat..."
+
+    # Backup delle impostazioni originali (se possibile)
+    $global:Backup5G = @{}
+    $global:Backup5G.NicSettings = @{}
+    $global:Backup5G.QoS = (netsh interface qos show policy "AntiBufferbloat" 2>$null) -ne $null
+
+    # TCP ottimizzazioni specifiche per 5G NSA
+    try {
+        netsh int tcp set global autotuninglevel=restricted | Out-Null
+        netsh int tcp set global chimney=disabled | Out-Null
+        netsh int tcp set global rss=enabled | Out-Null
+        netsh int tcp set global ecncapability=enabled | Out-Null
+        netsh int tcp set global timestamps=disabled | Out-Null
+        netsh int tcp set global rsc=disabled | Out-Null
+        netsh int tcp set global nonsackrttresiliency=disabled | Out-Null
+        netsh int tcp set global maxsynretransmissions=2 | Out-Null
+        netsh int tcp set global initialRto=200 | Out-Null
+        Write-Log "TCP ottimizzato per 5G NSA."
+    } catch {
+        Write-Log "Errore durante l'ottimizzazione TCP: $($_.Exception.Message)"
+    }
+
+    # UDP ottimizzazioni (TruckersMP)
+    try {
+        netsh int ipv4 set global sourceroutingbehavior=drop | Out-Null
+        netsh int ipv4 set global taskoffload=disabled | Out-Null
+        Write-Log "UDP ottimizzato per TruckersMP."
+    } catch {
+        Write-Log "Errore durante l'ottimizzazione UDP: $($_.Exception.Message)"
+    }
+
+    # Flush DNS e ARP
+    try {
+        ipconfig /flushdns | Out-Null
+        netsh interface ip delete arpcache | Out-Null
+        Write-Log "DNS e ARP cache svuotati."
+    } catch {
+        Write-Log "Errore durante il flush DNS/ARP: $($_.Exception.Message)"
+    }
+
+    # NIC ottimizzazioni estreme per 5G NSA
+    try {
+        Get-NetAdapter | ForEach-Object {
+            try {
+                Set-NetAdapterAdvancedProperty -Name $_.Name -DisplayName "Interrupt Moderation" -DisplayValue "Off" -ErrorAction SilentlyContinue
+                Set-NetAdapterAdvancedProperty -Name $_.Name -DisplayName "Receive Side Scaling" -DisplayValue "Enabled" -ErrorAction SilentlyContinue
+                Set-NetAdapterAdvancedProperty -Name $_.Name -DisplayName "Energy Efficient Ethernet" -DisplayValue "Off" -ErrorAction SilentlyContinue
+                Set-NetAdapterAdvancedProperty -Name $_.Name -DisplayName "Green Ethernet" -DisplayValue "Off" -ErrorAction SilentlyContinue
+                Set-NetAdapterAdvancedProperty -Name $_.Name -DisplayName "Flow Control" -DisplayValue "Rx & Tx Disabled" -ErrorAction SilentlyContinue
+                Set-NetAdapterAdvancedProperty -Name $_.Name -DisplayName "UDP Checksum Offload" -DisplayValue "Disabled" -ErrorAction SilentlyContinue
+                Set-NetAdapterAdvancedProperty -Name $_.Name -DisplayName "TCP Checksum Offload" -DisplayValue "Disabled" -ErrorAction SilentlyContinue
+                $global:Backup5G.NicSettings[$_.Name] = @{
+                    "Interrupt Moderation" = (Get-NetAdapterAdvancedProperty -Name $_.Name -DisplayName "Interrupt Moderation" -ErrorAction SilentlyContinue).DisplayValue
+                    "Receive Side Scaling" = (Get-NetAdapterAdvancedProperty -Name $_.Name -DisplayName "Receive Side Scaling" -ErrorAction SilentlyContinue).DisplayValue
+                    "Energy Efficient Ethernet" = (Get-NetAdapterAdvancedProperty -Name $_.Name -DisplayName "Energy Efficient Ethernet" -ErrorAction SilentlyContinue).DisplayValue
+                    "Green Ethernet" = (Get-NetAdapterAdvancedProperty -Name $_.Name -DisplayName "Green Ethernet" -ErrorAction SilentlyContinue).DisplayValue
+                    "Flow Control" = (Get-NetAdapterAdvancedProperty -Name $_.Name -DisplayName "Flow Control" -ErrorAction SilentlyContinue).DisplayValue
+                    "UDP Checksum Offload" = (Get-NetAdapterAdvancedProperty -Name $_.Name -DisplayName "UDP Checksum Offload" -ErrorAction SilentlyContinue).DisplayValue
+                    "TCP Checksum Offload" = (Get-NetAdapterAdvancedProperty -Name $_.Name -DisplayName "TCP Checksum Offload" -ErrorAction SilentlyContinue).DisplayValue
+                }
+            } catch {
+                Write-Log "Errore durante l'ottimizzazione NIC $($_.Name): $($_.Exception.Message)"
+            }
+        }
+        Write-Log "Ottimizzazioni NIC applicate."
+    } catch {
+        Write-Log "Errore durante l'ottimizzazione NIC: $($_.Exception.Message)"
+    }
+
+    # Riduzione DPC latency
+    try {
+        bcdedit /set disabledynamictick yes | Out-Null
+        bcdedit /set useplatformclock no | Out-Null
+        bcdedit /set tscsyncpolicy Enhanced | Out-Null
+        Write-Log "DPC latency ridotta."
+    } catch {
+        Write-Log "Errore durante la riduzione DPC latency: $($_.Exception.Message)"
+    }
+
+    # CPU scheduler ottimizzato
+    try {
+        powercfg -setacvalueindex SCHEME_CURRENT SUB_PROCESSOR IDLEDISABLE 1 | Out-Null
+        powercfg -setacvalueindex SCHEME_CURRENT SUB_PROCESSOR CPMINCORES 100 | Out-Null
+        powercfg -setacvalueindex SCHEME_CURRENT SUB_PROCESSOR CPMAXCORES 100 | Out-Null
+        Write-Log "CPU scheduler ottimizzato."
+    } catch {
+        Write-Log "Errore durante l'ottimizzazione CPU scheduler: $($_.Exception.Message)"
+    }
+
+    # GPU ottimizzazioni
+    try {
+        reg add "HKLM\SYSTEM\CurrentControlSet\Control\GraphicsDrivers" /v HwSchMode /t REG_DWORD /d 2 /f | Out-Null
+        Write-Log "GPU ottimizzato."
+    } catch {
+        Write-Log "Errore durante l'ottimizzazione GPU: $($_.Exception.Message)"
+    }
+
+    # Input lag minimo
+    try {
+        reg add "HKCU\Control Panel\Mouse" /v MouseSensitivity /t REG_SZ /d 10 /f | Out-Null
+        reg add "HKCU\Control Panel\Mouse" /v MouseSpeed /t REG_SZ /d 0 /f | Out-Null
+        reg add "HKCU\Control Panel\Mouse" /v MouseThreshold1 /t REG_SZ /d 0 /f | Out-Null
+        reg add "HKCU\Control Panel\Mouse" /v MouseThreshold2 /t REG_SZ /d 0 /f | Out-Null
+        Write-Log "Input lag minimizzato."
+    } catch {
+        Write-Log "Errore durante l'ottimizzazione input lag: $($_.Exception.Message)"
+    }
+
+    # Memoria
+    try {
+        reg add "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" /v LargeSystemCache /t REG_DWORD /d 0 /f | Out-Null
+        if ($global:AggressiveOptimizations) {
+            reg add "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" /v DisablePagingExecutive /t REG_DWORD /d 1 /f | Out-Null
+            Write-Log "Memoria ottimizzata (DisablePagingExecutive=1)."
+        } else {
+            reg add "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" /v DisablePagingExecutive /t REG_DWORD /d 0 /f | Out-Null
+            Write-Log "Memoria ottimizzata (DisablePagingExecutive=0)."
+        }
+    } catch {
+        Write-Log "Errore durante l'ottimizzazione memoria: $($_.Exception.Message)"
+    }
+
+    # File system
+    try {
+        reg add "HKLM\SYSTEM\CurrentControlSet\Control\FileSystem" /v NtfsDisableLastAccessUpdate /t REG_DWORD /d 1 /f | Out-Null
+        reg add "HKLM\SYSTEM\CurrentControlSet\Control\FileSystem" /v NtfsMemoryUsage /t REG_DWORD /d 2 /f | Out-Null
+        Write-Log "Ottimizzazioni file system applicate."
+    } catch {
+        Write-Log "Errore durante l'ottimizzazione file system: $($_.Exception.Message)"
+    }
+
+    # Servizi che causano bufferbloat o spike
+    try {
+        Stop-Service "DiagTrack" -Force -ErrorAction SilentlyContinue
+        Stop-Service "SysMain" -Force -ErrorAction SilentlyContinue
+        Stop-Service "WSearch" -Force -ErrorAction SilentlyContinue
+        Write-Log "Servizi non necessari disattivati."
+    } catch {
+        Write-Log "Errore durante la disattivazione servizi: $($_.Exception.Message)"
+    }
+
+    # ==========================
+    # QoS ANTI-BUFFERBLOAT INTELLIGENTE
+    # ==========================
+
+    # Limita leggermente l’upload per evitare saturazione 5G NSA
+    # (valore ideale: 85% della tua banda reale)
+    # Hai 40 Mbps upload → 34 Mbps
+    $uploadLimit = 34000  # in Kbps (34 Mbps)
+
+    # Rimuove vecchie policy
+    netsh interface qos delete policy "AntiBufferbloat" 2>$null | Out-Null
+
+    # Crea nuova policy QoS
+    try {
+        netsh interface qos add policy "AntiBufferbloat" `
+            throttle=$uploadLimit `
+            name=any `
+            description="QoS Anti-Bufferbloat 5G NSA" | Out-Null
+        Write-Log "QoS Anti-Bufferbloat applicato (Upload limit: $uploadLimit Kbps)."
+    } catch {
+        Write-Log "Errore durante la creazione QoS: $($_.Exception.Message)"
+    }
+
+    Write-Log "Ottimizzazioni 5G NSA EXTREME + QoS Anti-Bufferbloat completate."
+}
+
+function Ripristina-5GNSA {
+    Write-Log "Ripristino impostazioni 5G NSA EXTREME + QoS Anti-Bufferbloat..."
+
+    # Ripristina TCP
+    try {
+        netsh int tcp set global autotuninglevel=normal | Out-Null
+        netsh int tcp set global chimney=default | Out-Null
+        netsh int tcp set global rss=enabled | Out-Null
+        netsh int tcp set global ecncapability=disabled | Out-Null
+        netsh int tcp set global timestamps=enabled | Out-Null
+        netsh int tcp set global rsc=enabled | Out-Null
+        netsh int tcp set global nonsackrttresiliency=enabled | Out-Null
+        netsh int tcp set global maxsynretransmissions=3 | Out-Null
+        netsh int tcp set global initialRto=3000 | Out-Null
+        Write-Log "TCP ripristinato."
+    } catch {
+        Write-Log "Errore durante il ripristino TCP: $($_.Exception.Message)"
+    }
+
+    # Ripristina UDP
+    try {
+        netsh int ipv4 set global sourceroutingbehavior=accept | Out-Null
+        netsh int ipv4 set global taskoffload=enabled | Out-Null
+        Write-Log "UDP ripristinato."
+    } catch {
+        Write-Log "Errore durante il ripristino UDP: $($_.Exception.Message)"
+    }
+
+    # Ripristina NIC (se avevi backup)
+    if ($global:Backup5G.NicSettings) {
+        try {
+            Get-NetAdapter | ForEach-Object {
+                if ($global:Backup5G.NicSettings[$_.Name]) {
+                    $settings = $global:Backup5G.NicSettings[$_.Name]
+                    foreach ($key in $settings.Keys) {
+                        Set-NetAdapterAdvancedProperty -Name $_.Name -DisplayName $key -DisplayValue $settings[$key] -ErrorAction SilentlyContinue
+                    }
+                }
+            }
+            Write-Log "Impostazioni NIC ripristinate."
+        } catch {
+            Write-Log "Errore durante il ripristino NIC: $($_.Exception.Message)"
+        }
+    }
+
+    # Ripristina DPC latency
+    try {
+        bcdedit /set disabledynamictick no | Out-Null
+        bcdedit /set useplatformclock yes | Out-Null
+        bcdedit /set tscsyncpolicy Default | Out-Null
+        Write-Log "DPC latency ripristinata."
+    } catch {
+        Write-Log "Errore durante il ripristino DPC latency: $($_.Exception.Message)"
+    }
+
+    # Ripristina CPU scheduler
+    try {
+        powercfg -setacvalueindex SCHEME_CURRENT SUB_PROCESSOR IDLEDISABLE 0 | Out-Null
+        powercfg -setacvalueindex SCHEME_CURRENT SUB_PROCESSOR CPMINCORES 0 | Out-Null
+        powercfg -setacvalueindex SCHEME_CURRENT SUB_PROCESSOR CPMAXCORES 0 | Out-Null
+        Write-Log "CPU scheduler ripristinato."
+    } catch {
+        Write-Log "Errore durante il ripristino CPU scheduler: $($_.Exception.Message)"
+    }
+
+    # Ripristina GPU
+    try {
+        reg add "HKLM\SYSTEM\CurrentControlSet\Control\GraphicsDrivers" /v HwSchMode /t REG_DWORD /d 1 /f | Out-Null
+        Write-Log "GPU ripristinato."
+    } catch {
+        Write-Log "Errore durante il ripristino GPU: $($_.Exception.Message)"
+    }
+
+    # Ripristina input lag
+    try {
+        reg add "HKCU\Control Panel\Mouse" /v MouseSensitivity /t REG_SZ /d 10 /f | Out-Null
+        reg add "HKCU\Control Panel\Mouse" /v MouseSpeed /t REG_SZ /d 10 /f | Out-Null
+        reg add "HKCU\Control Panel\Mouse" /v MouseThreshold1 /t REG_SZ /d 6 /f | Out-Null
+        reg add "HKCU\Control Panel\Mouse" /v MouseThreshold2 /t REG_SZ /d 10 /f | Out-Null
+        Write-Log "Input lag ripristinato."
+    } catch {
+        Write-Log "Errore durante il ripristino input lag: $($_.Exception.Message)"
+    }
+
+    # Ripristina memoria
+    try {
+        reg add "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" /v LargeSystemCache /t REG_DWORD /d 1 /f | Out-Null
+        reg add "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" /v DisablePagingExecutive /t REG_DWORD /d 0 /f | Out-Null
+        Write-Log "Memoria ripristinata."
+    } catch {
+        Write-Log "Errore durante il ripristino memoria: $($_.Exception.Message)"
+    }
+
+    # Ripristina file system
+    try {
+        reg add "HKLM\SYSTEM\CurrentControlSet\Control\FileSystem" /v NtfsDisableLastAccessUpdate /t REG_DWORD /d 0 /f | Out-Null
+        reg add "HKLM\SYSTEM\CurrentControlSet\Control\FileSystem" /v NtfsMemoryUsage /t REG_DWORD /d 1 /f | Out-Null
+        Write-Log "File system ripristinato."
+    } catch {
+        Write-Log "Errore durante il ripristino file system: $($_.Exception.Message)"
+    }
+
+    # Ripristina servizi
+    try {
+        Set-Service "DiagTrack" -StartupType Automatic -ErrorAction SilentlyContinue
+        Start-Service "DiagTrack" -ErrorAction SilentlyContinue
+
+        Set-Service "SysMain" -StartupType Automatic -ErrorAction SilentlyContinue
+        Start-Service "SysMain" -ErrorAction SilentlyContinue
+
+        Set-Service "WSearch" -StartupType Automatic -ErrorAction SilentlyContinue
+        Start-Service "WSearch" -ErrorAction SilentlyContinue
+        Write-Log "Servizi ripristinati."
+    } catch {
+        Write-Log "Errore durante il ripristino servizi: $($_.Exception.Message)"
+    }
+
+    # Rimuovi QoS
+    try {
+        netsh interface qos delete policy "AntiBufferbloat" 2>$null | Out-Null
+        Write-Log "QoS Anti-Bufferbloat rimosso."
+    } catch {
+        Write-Log "Errore durante la rimozione QoS: $($_.Exception.Message)"
+    }
+
+    Write-Log "Ripristino 5G NSA EXTREME + QoS Anti-Bufferbloat completato."
+}
+
+# ============================
+#   AUTO-GAMING-BOOST (ETS2) - CON OTTIMIZZAZIONE REGISTRO E 5G NSA
 # ============================
 
 $global:GamingBoostAttivo = $false
@@ -407,220 +803,25 @@ $timer.Interval = [TimeSpan]::FromSeconds(5)
 $timer.Add_Tick({
     if (Controlla-ETS2) {
         if (-not $global:GamingBoostAttivo) {
-            Write-Log "ETS2 rilevato → Attivo Gaming Boost PLUS"
+            Write-Log "ETS2 rilevato → Attivo Gaming Boost PLUS + Ottimizzazione Registro + 5G NSA EXTREME"
             Gaming-BoostPlus
-            $TxtStatus.Text = "Gaming Boost PLUS attivo (ETS2 rilevato)"
+            Ottimizza-RegistroGaming
+            Ottimizza-5GNSA
+            $TxtStatus.Text = "Gaming Boost PLUS + Registro + 5G NSA (ETS2 rilevato)"
             $global:GamingBoostAttivo = $true
         }
     }
     else {
         if ($global:GamingBoostAttivo) {
-            Write-Log "ETS2 chiuso → Ripristino completo automatico"
+            Write-Log "ETS2 chiuso → Ripristino completo + Registro Originale + 5G NSA"
             Ripristino-Completo
-            $TxtStatus.Text = "Ripristino completato (ETS2 chiuso)"
+            Ripristina-RegistroGaming
+            Ripristina-5GNSA
+            $TxtStatus.Text = "Ripristino completo + Registro + 5G NSA (ETS2 chiuso)"
             $global:GamingBoostAttivo = $false
         }
     }
 })
-
-# ============================
-#   PULIZIA BROWSER
-# ============================
-
-function Pulisci-Chrome {
-    Write-Log "Pulizia Chrome..."
-
-    $chromePath = "$env:LOCALAPPDATA\Google\Chrome\User Data\Default"
-    if (!(Test-Path $chromePath)) {
-        Write-Log "Chrome non installato o percorso non trovato"
-        return
-    }
-
-    $items = @(
-        "Cache",
-        "Code Cache",
-        "GPUCache",
-        "Cookies",
-        "History",
-        "Bookmarks",
-        "Login Data"
-    )
-
-    foreach ($item in $items) {
-        $itemPath = Join-Path $chromePath $item
-        if (Test-Path $itemPath) {
-            try {
-                Remove-Item $itemPath -Recurse -Force -ErrorAction Stop
-                Write-Log "Eliminato: $itemPath"
-            } catch {
-                $errorMessage = $PSItem.Exception.Message
-                $fullMessage = "Impossibile eliminare: $itemPath - $errorMessage"
-                Write-Log $fullMessage
-            }
-        }
-    }
-
-    Write-Log "Pulizia Chrome completata."
-}
-
-function Pulisci-Edge {
-    Write-Log "Pulizia Edge..."
-
-    $edgePath = "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default"
-    if (!(Test-Path $edgePath)) {
-        Write-Log "Edge non installato o percorso non trovato"
-        return
-    }
-
-    $items = @(
-        "Cache",
-        "Code Cache",
-        "GPUCache",
-        "Cookies",
-        "History",
-        "Bookmarks",
-        "Login Data"
-    )
-
-    foreach ($item in $items) {
-        $itemPath = Join-Path $edgePath $item
-        if (Test-Path $itemPath) {
-            try {
-                Remove-Item $itemPath -Recurse -Force -ErrorAction Stop
-                Write-Log "Eliminato: $itemPath"
-            } catch {
-                $errorMessage = $PSItem.Exception.Message
-                $fullMessage = "Impossibile eliminare: $itemPath - $errorMessage"
-                Write-Log $fullMessage
-            }
-        }
-    }
-
-    Write-Log "Pulizia Edge completata."
-}
-
-function Pulisci-Brave {
-    Write-Log "Pulizia Brave..."
-
-    $bravePath = "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\Default"
-    if (!(Test-Path $bravePath)) {
-        Write-Log "Brave non installato o percorso non trovato"
-        return
-    }
-
-    $items = @(
-        "Cache",
-        "Code Cache",
-        "GPUCache",
-        "Cookies",
-        "History",
-        "Bookmarks",
-        "Login Data"
-    )
-
-    foreach ($item in $items) {
-        $itemPath = Join-Path $bravePath $item
-        if (Test-Path $itemPath) {
-            try {
-                Remove-Item $itemPath -Recurse -Force -ErrorAction Stop
-                Write-Log "Eliminato: $itemPath"
-            } catch {
-                $errorMessage = $PSItem.Exception.Message
-                $fullMessage = "Impossibile eliminare: $itemPath - $errorMessage"
-                Write-Log $fullMessage
-            }
-        }
-    }
-
-    Write-Log "Pulizia Brave completata."
-}
-
-function Pulisci-Norton {
-    Write-Log "Pulizia Norton Safe Web..."
-
-    $nortonPath = "$env:APPDATA\Norton\Norton Safe Web"
-    if (!(Test-Path $nortonPath)) {
-        Write-Log "Norton Safe Web non installato o percorso non trovato"
-        return
-    }
-
-    try {
-        Remove-Item $nortonPath -Recurse -Force -ErrorAction Stop
-        Write-Log "Pulizia Norton Safe Web completata."
-    } catch {
-        $errorMessage = $PSItem.Exception.Message
-        $fullMessage = "Impossibile eliminare Norton Safe Web - $errorMessage"
-        Write-Log $fullMessage
-    }
-}
-
-# ============================
-#   BACKUP DRIVER IN KDRIVE
-# ============================
-
-function Backup-DriverInKDrive {
-    Write-Log "Avvio backup driver in kDrive..."
-
-    # Percorso kDrive (cartella utente)
-    $kDrivePath = "C:\Users\tiber\kDrive"
-    if (!(Test-Path $kDrivePath)) {
-        Write-Log "Cartella kDrive non trovata: $kDrivePath"
-        return
-    }
-
-    # Percorso driver Windows
-    $driverPath = "$env:WINDIR\System32\DriverStore\FileRepository"
-
-    # Crea cartella backup con data
-    $backupFolder = Join-Path $kDrivePath "Driver_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
-    New-Item -ItemType Directory -Path $backupFolder -ErrorAction SilentlyContinue | Out-Null
-
-    # Usa robocopy per copiare i driver (richiede privilegi amministrativi)
-    try {
-        $robocopyCmd = "robocopy `"$driverPath`" `"$backupFolder`" /E /R:0 /W:0 /LOG+:`"$env:USERPROFILE\Desktop\DriverBackup.log`""
-        Write-Log "Eseguo: $robocopyCmd"
-        Invoke-Expression $robocopyCmd
-        Write-Log "Backup driver completato in: $backupFolder"
-    } catch {
-        $errorMessage = $PSItem.Exception.Message
-        $fullMessage = "Errore durante il backup dei driver - $errorMessage"
-        Write-Log $fullMessage
-    }
-}
-
-# ============================
-#   BACKUP DOCUMENTI IN KDRIVE
-# ============================
-
-function Backup-DocumentiInKDrive {
-    Write-Log "Avvio backup documenti in kDrive..."
-
-    # Percorso kDrive (cartella utente)
-    $kDrivePath = "C:\Users\tiber\kDrive"
-    if (!(Test-Path $kDrivePath)) {
-        Write-Log "Cartella kDrive non trovata: $kDrivePath"
-        return
-    }
-
-    # Percorso Documenti
-    $documentiPath = "$env:USERPROFILE\Documents"
-
-    # Crea cartella backup con data
-    $backupFolder = Join-Path $kDrivePath "backup documenti\Documenti_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
-
-    # Crea la cartella (se non esiste)
-    New-Item -ItemType Directory -Path $backupFolder -ErrorAction SilentlyContinue | Out-Null
-
-    # Usa robocopy per copiare i documenti
-    try {
-        $robocopyCmd = "robocopy `"$documentiPath`" `"$backupFolder`" /E /R:0 /W:0 /LOG+:`"$env:USERPROFILE\Desktop\DocumentiBackup.log`""
-        Write-Log "Eseguo: $robocopyCmd"
-        Invoke-Expression $robocopyCmd
-        Write-Log "Backup documenti completato in: $backupFolder"
-    } catch {
-        Write-Log "Errore durante il backup dei documenti: $($_.Exception.Message)"
-    }
-}
 
 # ============================
 #   GUI XAML
@@ -806,18 +1007,12 @@ $BtnControllaAggiornamenti.Add_Click({
     else {
         Write-Log "Aggiornamento disponibile, procedo..."
 
-       if ($MyInvocation.MyCommand.Definition) {
-    $percorsoLocale = $MyInvocation.MyCommand.Definition
-} else {
-    # Usa il percorso della cartella corrente dello script (se esiste)
-    $percorsoLocale = Join-Path $PSScriptRoot "TiberioEditionV6.ps1"
-    if (!(Test-Path $percorsoLocale)) {
-        # Se non esiste, prova con il percorso della cartella di esecuzione
-        $percorsoLocale = Join-Path (Get-Location).Path "TiberioEditionV6.ps1"
-        Write-Log "Avviso: Percorso dello script non determinato. Usato: $percorsoLocale"
-    }
-}
-
+        if ($MyInvocation.MyCommand.Definition) {
+            $percorsoLocale = $MyInvocation.MyCommand.Definition
+        } else {
+            $percorsoLocale = Join-Path $PSScriptRoot "TiberioEditionV6.ps1"
+            Write-Log "Avviso: Percorso dello script non determinato. Usato: $percorsoLocale"
+        }
 
         $result = Aggiorna-Script -NuovoContenuto $risultato -PercorsoLocale $percorsoLocale
         if ($result -eq "OK") {
