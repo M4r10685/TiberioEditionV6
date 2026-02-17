@@ -874,7 +874,7 @@ $timer.Add_Tick({
     }
 
     Write-Log "Ripristino 5G NSA EXTREME + QoS Anti-Bufferbloat completato."
-}
+
 
 # ============================
 #   AUTO-GAMING-BOOST (ETS2) - CON OTTIMIZZAZIONE REGISTRO E 5G NSA
