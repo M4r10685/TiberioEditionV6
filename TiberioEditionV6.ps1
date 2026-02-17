@@ -639,7 +639,7 @@ function Ottimizza-5GNSA {
     # Limita leggermente l’upload per evitare saturazione 5G NSA
     # (valore ideale: 85% della tua banda reale)
     # Hai 40 Mbps upload → 34 Mbps
-    $uploadLimit = 34000  # in Kbps (34 Mbps)
+    $uploadLimit = 30000  # in Kbps (34 Mbps)
 
     # Rimuove vecchie policy
     netsh interface qos delete policy "AntiBufferbloat" 2>$null | Out-Null
