@@ -658,8 +658,98 @@ function Ottimizza-5GNSA {
     Write-Log "Ottimizzazioni 5G NSA EXTREME + QoS Anti-Bufferbloat completate."
 }
 
-function Ripristina-5GNSA {
-    Write-Log "Ripristino impostazioni 5G NSA EXTREME + QoS Anti-Bufferbloat..."
+# ============================
+#   FUNZIONE: RIPRISTINA RETE A STATO PREDEFINITO
+# ============================
+function Ripristina-Rete {
+    Write-Log "Avvio ripristino di rete a stato predefinito..."
+
+    # 1. Resetta TCP/IP
+    try {
+        netsh int ip reset | Out-Null
+        netsh int ipv4 reset | Out-Null
+        netsh int ipv6 reset | Out-Null
+        Write-Log "TCP/IP ripristinato."
+    } catch {
+        Write-Log "Errore durante il ripristino TCP/IP: $($_.Exception.Message)"
+    }
+
+    # 2. Resetta Winsock
+    try {
+        netsh winsock reset | Out-Null
+        Write-Log "Winsock ripristinato."
+    } catch {
+        Write-Log "Errore durante il ripristino Winsock: $($_.Exception.Message)"
+    }
+
+    # 3. Resetta DNS
+    try {
+        netsh int ipv4 set dns "Local Area Connection" dhcp | Out-Null
+        netsh int ipv4 set dns "Ethernet" dhcp | Out-Null
+        netsh int ipv4 set dns "Wi-Fi" dhcp | Out-Null
+        Write-Log "DNS ripristinato a DHCP."
+    } catch {
+        Write-Log "Errore durante il ripristino DNS: $($_.Exception.Message)"
+    }
+
+    # 4. Flush ARP e DNS
+    try {
+        ipconfig /flushdns | Out-Null
+        netsh interface ip delete arpcache | Out-Null
+        Write-Log "DNS e ARP cache svuotati."
+    } catch {
+        Write-Log "Errore durante il flush DNS/ARP: $($_.Exception.Message)"
+    }
+
+    # 5. Riavvia servizi di rete
+    try {
+        Restart-Service "Dnscache" -ErrorAction SilentlyContinue
+        Restart-Service "Netman" -ErrorAction SilentlyContinue
+        Restart-Service "WlanSvc" -ErrorAction SilentlyContinue
+        Write-Log "Servizi di rete riavviati."
+    } catch {
+        Write-Log "Errore durante il riavvio servizi di rete: $($_.Exception.Message)"
+    }
+
+    Write-Log "Ripristino di rete completato. Consigliato riavviare il PC per effetti completi."
+}
+
+# ============================
+#   AGGIORNAMENTO DEL TIMER ETS2 PER ESEGUIRE RIPRISTINO RETE LA PRIMA VOLTA
+# ============================
+
+# Inizializza la variabile globale (deve essere prima del timer)
+$global:ReteRipristinata = $false
+
+# Modifica il timer ETS2
+$timer.Add_Tick({
+    if (Controlla-ETS2) {
+        if (-not $global:GamingBoostAttivo) {
+            Write-Log "ETS2 rilevato → Avvio ripristino rete, poi Gaming Boost PLUS + Ottimizzazione Registro + 5G NSA EXTREME"
+            # Esegui ripristino rete solo la prima volta
+            if (-not $global:ReteRipristinata) {
+                Ripristina-Rete
+                $global:ReteRipristinata = $true
+            }
+            Gaming-BoostPlus
+            Ottimizza-RegistroGaming
+            Ottimizza-5GNSA
+            $TxtStatus.Text = "Gaming Boost PLUS + Registro + 5G NSA (ETS2 rilevato)"
+            $global:GamingBoostAttivo = $true
+        }
+    }
+    else {
+        if ($global:GamingBoostAttivo) {
+            Write-Log "ETS2 chiuso → Ripristino completo + Registro Originale + 5G NSA"
+            Ripristino-Completo
+            Ripristina-RegistroGaming
+            Ripristina-5GNSA
+            $TxtStatus.Text = "Ripristino completo + Registro + 5G NSA (ETS2 chiuso)"
+            $global:GamingBoostAttivo = $false
+        }
+    }
+})
+
 
     # Ripristina TCP
     try {
