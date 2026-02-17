@@ -715,40 +715,51 @@ function Ripristina-Rete {
 }
 
 # ============================
-#   AGGIORNAMENTO DEL TIMER ETS2 PER ESEGUIRE RIPRISTINO RETE LA PRIMA VOLTA
+#   CREA IL TIMER (se non esiste) + INIZIALIZZA VARIABILI
 # ============================
+if ($timer -eq $null) {
+    Write-Log "Creazione del timer..."
+    $timer = New-Object System.Windows.Threading.DispatcherTimer
+    $timer.Interval = [TimeSpan]::FromSeconds(5)
+}
 
 # Inizializza la variabile globale (deve essere prima del timer)
 $global:ReteRipristinata = $false
 
-# Modifica il timer ETS2
-$timer.Add_Tick({
-    if (Controlla-ETS2) {
-        if (-not $global:GamingBoostAttivo) {
-            Write-Log "ETS2 rilevato → Avvio ripristino rete, poi Gaming Boost PLUS + Ottimizzazione Registro + 5G NSA EXTREME"
-            # Esegui ripristino rete solo la prima volta
-            if (-not $global:ReteRipristinata) {
-                Ripristina-Rete
-                $global:ReteRipristinata = $true
+# ============================
+#   AGGIUNGI IL TICK AL TIMER (se il timer è stato creato)
+# ============================
+if ($timer -ne $null) {
+    Write-Log "Timer creato. Intervallo: $($timer.Interval.TotalSeconds) secondi."
+    $timer.Add_Tick({
+        if (Controlla-ETS2) {
+            if (-not $global:GamingBoostAttivo) {
+                Write-Log "ETS2 rilevato → Avvio ripristino rete, poi Gaming Boost PLUS + Ottimizzazione Registro + 5G NSA EXTREME"
+                # Esegui ripristino rete solo la prima volta
+                if (-not $global:ReteRipristinata) {
+                    Ripristina-Rete
+                    $global:ReteRipristinata = $true
+                }
+                Gaming-BoostPlus
+                Ottimizza-RegistroGaming
+                Ottimizza-5GNSA
+                $TxtStatus.Text = "Gaming Boost PLUS + Registro + 5G NSA (ETS2 rilevato)"
+                $global:GamingBoostAttivo = $true
             }
-            Gaming-BoostPlus
-            Ottimizza-RegistroGaming
-            Ottimizza-5GNSA
-            $TxtStatus.Text = "Gaming Boost PLUS + Registro + 5G NSA (ETS2 rilevato)"
-            $global:GamingBoostAttivo = $true
         }
-    }
-    else {
-        if ($global:GamingBoostAttivo) {
-            Write-Log "ETS2 chiuso → Ripristino completo + Registro Originale + 5G NSA"
-            Ripristino-Completo
-            Ripristina-RegistroGaming
-            Ripristina-5GNSA
-            $TxtStatus.Text = "Ripristino completo + Registro + 5G NSA (ETS2 chiuso)"
-            $global:GamingBoostAttivo = $false
+        else {
+            if ($global:GamingBoostAttivo) {
+                Write-Log "ETS2 chiuso → Ripristino completo + Registro Originale + 5G NSA"
+                Ripristino-Completo
+                Ripristina-RegistroGaming
+                Ripristina-5GNSA
+                $TxtStatus.Text = "Ripristino completo + Registro + 5G NSA (ETS2 chiuso)"
+                $global:GamingBoostAttivo = $false
+            }
         }
-    }
-})
+    })
+}
+
 
 
     # Ripristina TCP
