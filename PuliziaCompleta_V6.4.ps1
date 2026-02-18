@@ -276,6 +276,137 @@ function Start-GameBoostCore {
             }
         }
 
+# ==========================
+# MEGASCRIPT ULTRA – 5G NSA STABILE
+# ==========================
+function Invoke-MegaScriptUltra {
+    Write-GBLog "MegaScript Ultra: avvio."
+
+    # TCP ottimizzazioni sicure per 5G NSA
+    netsh int tcp set global autotuninglevel=highlyrestricted | Out-Null
+    netsh int tcp set global chimney=disabled | Out-Null
+    netsh int tcp set global rss=enabled | Out-Null
+    netsh int tcp set global ecncapability=enabled | Out-Null
+    netsh int tcp set global timestamps=disabled | Out-Null
+    netsh int tcp set global rsc=disabled | Out-Null
+
+    # UDP ottimizzazioni
+    netsh int ipv4 set global sourceroutingbehavior=drop | Out-Null
+    netsh int ipv4 set global taskoffload=disabled | Out-Null
+
+    # Flush DNS e ARP
+    ipconfig /flushdns | Out-Null
+    netsh interface ip delete arpcache | Out-Null
+
+    # NIC ottimizzazioni sicure
+    Get-NetAdapter | ForEach-Object {
+        try {
+            Set-NetAdapterAdvancedProperty -Name $_.Name -DisplayName "Interrupt Moderation" -DisplayValue "Off" -ErrorAction SilentlyContinue
+            Set-NetAdapterAdvancedProperty -Name $_.Name -DisplayName "Receive Side Scaling" -DisplayValue "Enabled" -ErrorAction SilentlyContinue
+            Set-NetAdapterAdvancedProperty -Name $_.Name -DisplayName "Energy Efficient Ethernet" -DisplayValue "Off" -ErrorAction SilentlyContinue
+            Set-NetAdapterAdvancedProperty -Name $_.Name -DisplayName "Green Ethernet" -DisplayValue "Off" -ErrorAction SilentlyContinue
+            Set-NetAdapterAdvancedProperty -Name $_.Name -DisplayName "Flow Control" -DisplayValue "Disabled" -ErrorAction SilentlyContinue
+        } catch {}
+    }
+
+    # Riduzione DPC latency (sicura)
+    bcdedit /set disabledynamictick yes | Out-Null
+    bcdedit /set tscsyncpolicy Enhanced | Out-Null
+
+    # CPU scheduler (sicuro)
+    powercfg -setacvalueindex SCHEME_CURRENT SUB_PROCESSOR IDLEDISABLE 1 | Out-Null
+
+    # GPU
+    reg add "HKLM\SYSTEM\CurrentControlSet\Control\GraphicsDrivers" /v HwSchMode /t REG_DWORD /d 2 /f | Out-Null
+
+    # Input lag minimo
+    reg add "HKCU\Control Panel\Mouse" /v MouseSpeed /t REG_SZ /d 0 /f | Out-Null
+    reg add "HKCU\Control Panel\Mouse" /v MouseThreshold1 /t REG_SZ /d 0 /f | Out-Null
+    reg add "HKCU\Control Panel\Mouse" /v MouseThreshold2 /t REG_SZ /d 0 /f | Out-Null
+
+    # Memoria
+    reg add "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" /v DisablePagingExecutive /t REG_DWORD /d 1 /f | Out-Null
+
+    # File system
+    reg add "HKLM\SYSTEM\CurrentControlSet\Control\FileSystem" /v NtfsDisableLastAccessUpdate /t REG_DWORD /d 1 /f | Out-Null
+
+    # Servizi che causano spike
+    Stop-Service "DiagTrack" -Force -ErrorAction SilentlyContinue
+    Stop-Service "SysMain" -Force -ErrorAction SilentlyContinue
+
+    Write-GBLog "MegaScript Ultra: completato."
+}
+
+# ==========================
+# CORE BOOST (LOCKED)
+# ==========================
+function Start-GameBoostCore {
+    param([int[]]$GamePids)
+
+    Write-GBLog "GameBoostCore LOCKED avviato."
+
+    $kill=@(
+        "chrome","msedge","opera","firefox","onedrive",
+        "steamwebhelper","epicgameslauncher","battle.net",
+        "spotify","origin","uplay","goggalaxy"
+    )
+
+    # Salva piano energetico corrente
+    $currentScheme = (powercfg /getactivescheme) -replace '.*GUID:\s*([a-f0-9\-]+).*','$1'
+    Write-GBLog "Piano energetico corrente: $currentScheme"
+
+    # Attiva High Performance
+    $highPerf = (powercfg /list | Select-String "High performance|Prestazioni elevate")
+    if($highPerf){
+        $hpGuid = ($highPerf.ToString() -replace '.*GUID:\s*([a-f0-9\-]+).*','$1')
+        if($hpGuid){
+            Write-GBLog "Attivo High Performance: $hpGuid"
+            powercfg /setactive $hpGuid | Out-Null
+        }
+    }
+
+    # Ottimizzazioni rete base (sicure)
+    netsh int tcp set global autotuninglevel=disabled | Out-Null
+    netsh int tcp set global rss=enabled | Out-Null
+    netsh int tcp set global ecncapability=disabled | Out-Null
+    netsh int tcp set global timestamps=disabled | Out-Null
+
+    ipconfig /flushdns | Out-Null
+    netsh interface ip delete arpcache | Out-Null
+
+    # MegaScript Ultra
+    Invoke-MegaScriptUltra
+
+    # Loop LOCKED
+    Write-GBLog "Modalità LOCKED attiva."
+    while($true){
+
+        $alive = @()
+        foreach($pid in $GamePids){
+            $p = Get-Process -Id $pid -ErrorAction SilentlyContinue
+            if($p){ $alive += $p }
+        }
+
+        if(-not $alive){
+            Write-GBLog "Gioco chiuso, avvio ripristino."
+            break
+        }
+
+        # Priorità CPU
+        foreach($p in $alive){
+            try{
+                $p.PriorityClass = "High"
+            }catch{}
+        }
+
+        # Chiudi processi inutili
+        foreach($name in $kill){
+            $proc = Get-Process $name -ErrorAction SilentlyContinue
+            if($proc){
+                try{ $proc | Stop-Process -Force }catch{}
+            }
+        }
+
         Start-Sleep -Seconds 5
     }
 
@@ -296,7 +427,6 @@ function Restore-GameBoostCore {
     netsh int tcp set global timestamps=default | Out-Null
 
     if($PreviousScheme){
-        Write-GBLog "Ripristino piano energetico: $PreviousScheme"
         powercfg /setactive $PreviousScheme | Out-Null
     }
 }
@@ -326,7 +456,8 @@ function GameBoost-Plus-Locked {
 
 # ==========================
 # AUTO-JOB IN BACKGROUND
-# ==========================
+# ======================
+====
 if(-not (Get-Job -Name "AutoGameBoost" -ErrorAction SilentlyContinue)){
     Start-Job -Name "AutoGameBoost" -ScriptBlock {
         while($true){
