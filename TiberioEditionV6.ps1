@@ -666,33 +666,38 @@ function Ripristina-Rete {
 
     # 1. Resetta TCP/IP
     try {
-        netsh int ip reset | Out-Null
-        netsh int ipv4 reset | Out-Null
-        netsh int ipv6 reset | Out-Null
-        Write-Log "TCP/IP ripristinato."
-    } catch {
-        Write-Log "Errore durante il ripristino TCP/IP: $($_.Exception.Message)"
-    }
+# ============================
+#   FUNZIONE: OTTIMIZZA-5GNSA (LEGGERA) - SOLO TCP E QoS
+# ============================
+function Ottimizza-5GNSA {
+    Write-Log "Avvio ottimizzazioni 5G NSA LEGGERE (solo TCP e QoS)..."
 
-    # 2. Resetta Winsock
+    # TCP ottimizzazioni specifiche per 5G NSA
     try {
-        netsh winsock reset | Out-Null
-        Write-Log "Winsock ripristinato."
+        netsh int tcp set global autotuninglevel=restricted | Out-Null
+        netsh int tcp set global chimney=disabled | Out-Null
+        netsh int tcp set global rss=enabled | Out-Null
+        netsh int tcp set global ecncapability=enabled | Out-Null
+        netsh int tcp set global timestamps=disabled | Out-Null
+        netsh int tcp set global rsc=disabled | Out-Null
+        netsh int tcp set global nonsackrttresiliency=disabled | Out-Null
+        netsh int tcp set global maxsynretransmissions=2 | Out-Null
+        netsh int tcp set global initialRto=200 | Out-Null
+        Write-Log "TCP ottimizzato per 5G NSA."
     } catch {
-        Write-Log "Errore durante il ripristino Winsock: $($_.Exception.Message)"
+        Write-Log "Errore durante l'ottimizzazione TCP: $($_.Exception.Message)"
     }
 
-    # 3. Resetta DNS
+    # UDP ottimizzazioni (TruckersMP)
     try {
-        netsh int ipv4 set dns "Local Area Connection" dhcp | Out-Null
-        netsh int ipv4 set dns "Ethernet" dhcp | Out-Null
-        netsh int ipv4 set dns "Wi-Fi" dhcp | Out-Null
-        Write-Log "DNS ripristinato a DHCP."
+        netsh int ipv4 set global sourceroutingbehavior=drop | Out-Null
+        netsh int ipv4 set global taskoffload=disabled | Out-Null
+        Write-Log "UDP ottimizzato per TruckersMP."
     } catch {
-        Write-Log "Errore durante il ripristino DNS: $($_.Exception.Message)"
+        Write-Log "Errore durante l'ottimizzazione UDP: $($_.Exception.Message)"
     }
 
-    # 4. Flush ARP e DNS
+    # Flush DNS e ARP
     try {
         ipconfig /flushdns | Out-Null
         netsh interface ip delete arpcache | Out-Null
@@ -701,17 +706,72 @@ function Ripristina-Rete {
         Write-Log "Errore durante il flush DNS/ARP: $($_.Exception.Message)"
     }
 
-    # 5. Riavvia servizi di rete
+    # ==========================
+    # QoS ANTI-BUFFERBLOAT INTELLIGENTE
+    # ==========================
+
+    # Limita leggermente l’upload per evitare saturazione 5G NSA
+    # (valore ideale: 85% della tua banda reale)
+    # Hai 40 Mbps upload → 34 Mbps
+    $uploadLimit = 34000  # in Kbps (34 Mbps)
+
+    # Rimuove vecchie policy
+    netsh interface qos delete policy "AntiBufferbloat" 2>$null | Out-Null
+
+    # Crea nuova policy QoS
     try {
-        Restart-Service "Dnscache" -ErrorAction SilentlyContinue
-        Restart-Service "Netman" -ErrorAction SilentlyContinue
-        Restart-Service "WlanSvc" -ErrorAction SilentlyContinue
-        Write-Log "Servizi di rete riavviati."
+        netsh interface qos add policy "AntiBufferbloat" `
+            throttle=$uploadLimit `
+            name=any `
+            description="QoS Anti-Bufferbloat 5G NSA" | Out-Null
+        Write-Log "QoS Anti-Bufferbloat applicato (Upload limit: $uploadLimit Kbps)."
     } catch {
-        Write-Log "Errore durante il riavvio servizi di rete: $($_.Exception.Message)"
+        Write-Log "Errore durante la creazione QoS: $($_.Exception.Message)"
     }
 
-    Write-Log "Ripristino di rete completato. Consigliato riavviare il PC per effetti completi."
+    Write-Log "Ottimizzazioni 5G NSA LEGGERE completate."
+}
+
+# ============================
+#   FUNZIONE: RIPRISTINA-5GNSA (LEGGERA) - SOLO TCP E QoS
+# ============================
+function Ripristina-5GNSA {
+    Write-Log "Ripristino impostazioni 5G NSA LEGGERE (solo TCP e QoS)..."
+
+    # Ripristina TCP
+    try {
+        netsh int tcp set global autotuninglevel=normal | Out-Null
+        netsh int tcp set global chimney=default | Out-Null
+        netsh int tcp set global rss=enabled | Out-Null
+        netsh int tcp set global ecncapability=disabled | Out-Null
+        netsh int tcp set global timestamps=enabled | Out-Null
+        netsh int tcp set global rsc=enabled | Out-Null
+        netsh int tcp set global nonsackrttresiliency=enabled | Out-Null
+        netsh int tcp set global maxsynretransmissions=3 | Out-Null
+        netsh int tcp set global initialRto=3000 | Out-Null
+        Write-Log "TCP ripristinato."
+    } catch {
+        Write-Log "Errore durante il ripristino TCP: $($_.Exception.Message)"
+    }
+
+    # Ripristina UDP
+    try {
+        netsh int ipv4 set global sourceroutingbehavior=accept | Out-Null
+        netsh int ipv4 set global taskoffload=enabled | Out-Null
+        Write-Log "UDP ripristinato."
+    } catch {
+        Write-Log "Errore durante il ripristino UDP: $($_.Exception.Message)"
+    }
+
+    # Ripristina QoS
+    try {
+        netsh interface qos delete policy "AntiBufferbloat" 2>$null | Out-Null
+        Write-Log "QoS Anti-Bufferbloat rimosso."
+    } catch {
+        Write-Log "Errore durante la rimozione QoS: $($_.Exception.Message)"
+    }
+
+    Write-Log "Ripristino 5G NSA LEGGERE completato."
 }
 
 # ============================
