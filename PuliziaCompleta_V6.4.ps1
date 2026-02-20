@@ -276,58 +276,8 @@ function Start-GameBoostCore {
             }
         }
 
-# ==========================
-# MEGASCRIPT ULTRA – 5G NSA STABILE
-# ==========================
-function Invoke-MegaScriptUltra {
-    Write-GBLog "MegaScript Ultra: avvio."
 
-    # TCP ottimizzazioni sicure per 5G NSA
-    netsh int tcp set global autotuninglevel=highlyrestricted | Out-Null
-    netsh int tcp set global chimney=disabled | Out-Null
-    netsh int tcp set global rss=enabled | Out-Null
-    netsh int tcp set global ecncapability=enabled | Out-Null
-    netsh int tcp set global timestamps=disabled | Out-Null
-    netsh int tcp set global rsc=disabled | Out-Null
-
-    # UDP ottimizzazioni
-    netsh int ipv4 set global sourceroutingbehavior=drop | Out-Null
-    netsh int ipv4 set global taskoffload=disabled | Out-Null
-
-    # Flush DNS e ARP
-    ipconfig /flushdns | Out-Null
-    netsh interface ip delete arpcache | Out-Null
-
-    # NIC ottimizzazioni sicure
-    Get-NetAdapter | ForEach-Object {
-        try {
-            Set-NetAdapterAdvancedProperty -Name $_.Name -DisplayName "Interrupt Moderation" -DisplayValue "Off" -ErrorAction SilentlyContinue
-            Set-NetAdapterAdvancedProperty -Name $_.Name -DisplayName "Receive Side Scaling" -DisplayValue "Enabled" -ErrorAction SilentlyContinue
-            Set-NetAdapterAdvancedProperty -Name $_.Name -DisplayName "Energy Efficient Ethernet" -DisplayValue "Off" -ErrorAction SilentlyContinue
-            Set-NetAdapterAdvancedProperty -Name $_.Name -DisplayName "Green Ethernet" -DisplayValue "Off" -ErrorAction SilentlyContinue
-            Set-NetAdapterAdvancedProperty -Name $_.Name -DisplayName "Flow Control" -DisplayValue "Disabled" -ErrorAction SilentlyContinue
-        } catch {}
-    }
-
-    # Riduzione DPC latency (sicura)
-    bcdedit /set disabledynamictick yes | Out-Null
-    bcdedit /set tscsyncpolicy Enhanced | Out-Null
-
-    # CPU scheduler (sicuro)
-    powercfg -setacvalueindex SCHEME_CURRENT SUB_PROCESSOR IDLEDISABLE 1 | Out-Null
-
-    # GPU
-    reg add "HKLM\SYSTEM\CurrentControlSet\Control\GraphicsDrivers" /v HwSchMode /t REG_DWORD /d 2 /f | Out-Null
-
-    # Input lag minimo
-    reg add "HKCU\Control Panel\Mouse" /v MouseSpeed /t REG_SZ /d 0 /f | Out-Null
-    reg add "HKCU\Control Panel\Mouse" /v MouseThreshold1 /t REG_SZ /d 0 /f | Out-Null
-    reg add "HKCU\Control Panel\Mouse" /v MouseThreshold2 /t REG_SZ /d 0 /f | Out-Null
-
-    # Memoria
-    reg add "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" /v DisablePagingExecutive /t REG_DWORD /d 1 /f | Out-Null
-
-    # File system
+    
 
 
 
