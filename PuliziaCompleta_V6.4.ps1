@@ -328,28 +328,7 @@ function Invoke-MegaScriptUltra {
     reg add "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" /v DisablePagingExecutive /t REG_DWORD /d 1 /f | Out-Null
 
     # File system
-    reg add "HKLM\SYSTEM\CurrentControlSet\Control\FileSystem" /v NtfsDisableLastAccessUpdate /t REG_DWORD /d 1 /f | Out-Null
 
-    # Servizi che causano spike
-    Stop-Service "DiagTrack" -Force -ErrorAction SilentlyContinue
-    Stop-Service "SysMain" -Force -ErrorAction SilentlyContinue
-
-    Write-GBLog "MegaScript Ultra: completato."
-}
-
-# ==========================
-# CORE BOOST (LOCKED)
-# ==========================
-function Start-GameBoostCore {
-    param([int[]]$GamePids)
-
-    Write-GBLog "GameBoostCore LOCKED avviato."
-
-    $kill=@(
-        "chrome","msedge","opera","firefox","onedrive",
-        "steamwebhelper","epicgameslauncher","battle.net",
-        "spotify","origin","uplay","goggalaxy"
-    )
 
 
 # ==========================
