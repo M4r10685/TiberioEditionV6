@@ -172,6 +172,7 @@ function Ripara-Sistema{
     Start-Process powershell -ArgumentList "DISM /Online /Cleanup-Image /RestoreHealth" -Verb RunAs -Wait
     [System.Windows.MessageBox]::Show("Riparazione completata.","Ripara Sistema") | Out-Null
 }
+
 # ==========================
 # LOG GAMEBOOST PLUS ULTRA
 # ==========================
@@ -186,100 +187,6 @@ function Write-GBLog{
     $time = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
     "$time - $Message" | Out-File -FilePath $Global:GB_LogFile -Append -Encoding UTF8
 }
-
-# ==========================
-# MEGASCRIPT ULTRA
-# ==========================
-function Invoke-MegaScriptUltra {
-    Write-GBLog "MegaScript Ultra: avvio."
-
-    # >>> QUI INCOLLI IL TUO MEGASCRIPT ULTRA <<<
-    # Esempio placeholder:
-    # netsh int tcp set global chimney=disabled | Out-Null
-    # netsh int tcp set global netdma=disabled | Out-Null
-
-    Write-GBLog "MegaScript Ultra: completato."
-}
-
-# ==========================
-# CORE BOOST (LOCKED)
-# ==========================
-function Start-GameBoostCore {
-    param([int[]]$GamePids)
-
-    Write-GBLog "GameBoostCore LOCKED avviato."
-
-    $kill=@(
-        "chrome","msedge","opera","firefox","onedrive",
-        "steamwebhelper","epicgameslauncher","battle.net",
-        "spotify","origin","uplay","goggalaxy"
-    )
-
-    # Salva piano energetico corrente
-    $currentScheme = (powercfg /getactivescheme) -replace '.*GUID:\s*([a-f0-9\-]+).*','$1'
-    Write-GBLog "Piano energetico corrente: $currentScheme"
-
-    # Attiva High Performance
-    $highPerf = (powercfg /list | Select-String "High performance|Prestazioni elevate")
-    if($highPerf){
-        $hpGuid = ($highPerf.ToString() -replace '.*GUID:\s*([a-f0-9\-]+).*','$1')
-        if($hpGuid){
-            Write-GBLog "Attivo High Performance: $hpGuid"
-            powercfg /setactive $hpGuid | Out-Null
-        }
-    }
-
-    # Ottimizzazioni rete
-    Write-GBLog "Applico ottimizzazioni rete."
-    netsh int tcp set global autotuninglevel=disabled | Out-Null
-    netsh int tcp set global rss=enabled | Out-Null
-    netsh int tcp set global ecncapability=disabled | Out-Null
-    netsh int tcp set global timestamps=disabled | Out-Null
-
-    ipconfig /flushdns | Out-Null
-    netsh interface ip delete arpcache | Out-Null
-
-    # MegaScript Ultra
-    Invoke-MegaScriptUltra
-
-    # Loop LOCKED (rimane attivo finché il gioco è aperto)
-    Write-GBLog "Modalità LOCKED attiva."
-    while($true){
-
-        $alive = @()
-        foreach($pid in $GamePids){
-            $p = Get-Process -Id $pid -ErrorAction SilentlyContinue
-            if($p){ $alive += $p }
-        }
-
-        if(-not $alive){
-            Write-GBLog "Gioco chiuso, avvio ripristino."
-            break
-        }
-
-        # Priorità CPU
-        foreach($p in $alive){
-            try{
-                $p.PriorityClass = "High"
-                Write-GBLog "Priorità High per: $($p.ProcessName)"
-            }catch{}
-        }
-
-        # Chiudi processi inutili
-        foreach($name in $kill){
-            $proc = Get-Process $name -ErrorAction SilentlyContinue
-            if($proc){
-                try{
-                    $proc | Stop-Process -Force
-                    Write-GBLog "Terminato processo inutile: $name"
-                }catch{}
-            }
-        }
-
-
-    
-
-
 
 # ==========================
 # MEGASCRIPT ULTRA – 5G NSA STABILE
@@ -481,37 +388,117 @@ if(-not (Get-Job -Name "AutoGameBoost" -ErrorAction SilentlyContinue)){
 # ==========================
 [xml]$x=@"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-Title="Tiberio Edition V6.5" Height="520" Width="760" WindowStartupLocation="CenterScreen">
-<Grid Margin="20">
-<Grid.RowDefinitions>
-<RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-</Grid.RowDefinitions>
-<TextBlock Text="Tiberio Edition V6.5" FontSize="22" FontWeight="Bold" Margin="0,0,0,15"/>
-<Grid Grid.Row="1">
-<Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
-<StackPanel Grid.Column="0">
-<Button x:Name="BtnPuliziaBase" Content="Pulizia Base" Margin="0,0,0,8"/>
-<Button x:Name="BtnPuliziaGaming" Content="Pulizia Gaming" Margin="0,0,0,8"/>
-<Button x:Name="BtnPuliziaBrowser" Content="Pulizia Browser" Margin="0,0,0,8"/>
-<Button x:Name="BtnPuliziaUSB" Content="Pulizia USB" Margin="0,0,0,8"/>
-<Button x:Name="BtnSalvaDriver" Content="Salva Driver" Margin="0,0,0,8"/>
-<Button x:Name="BtnManutenzioneCompleta" Content="Manutenzione Completa" Margin="0,10,0,8"/>
-<Button x:Name="BtnRiparazioneSistema" Content="Riparazione Sistema" Margin="0,0,0,8"/>
-<Button x:Name="BtnControllaAggiornamenti" Content="Controlla Aggiornamenti" Margin="0,10,0,0"/>
-</StackPanel>
-<StackPanel Grid.Column="1">
-<Button x:Name="BtnGamingBoost" Content="Gaming Boost" Margin="0,0,0,8"/>
-<Button x:Name="BtnGamingBoostPlus" Content="Gaming Boost PLUS" Margin="0,0,0,8"/>
-<Button x:Name="BtnOttimizzaRete" Content="Ottimizza Rete" Margin="0,0,0,8"/>
-<Button x:Name="BtnEsci" Content="Esci" Margin="0,20,0,0"/>
-</StackPanel>
-</Grid>
-<ProgressBar x:Name="ProgressBarOperazione" Grid.Row="2" Height="22" Margin="0,15,0,5"/>
-<StatusBar Grid.Row="3"><StatusBarItem><TextBlock x:Name="TxtStatus" Text="Pronto."/></StatusBarItem></StatusBar>
-</Grid>
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Tiberio Edition V6.5"
+        Height="520"
+        Width="760"
+        WindowStartupLocation="CenterScreen"
+        Background="#1E1E1E">
+
+    <Window.Resources>
+
+        <!-- Stile testo -->
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+        </Style>
+
+        <!-- Stile bottoni dark -->
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="#2D2D30"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="BorderBrush" Value="#3A3A3D"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#3A3A3D"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="#007ACC"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ProgressBar dark -->
+        <Style TargetType="ProgressBar">
+            <Setter Property="Foreground" Value="#007ACC"/>
+            <Setter Property="Background" Value="#3C3C3C"/>
+            <Setter Property="Height" Value="22"/>
+        </Style>
+
+        <!-- StatusBar dark -->
+        <Style TargetType="StatusBar">
+            <Setter Property="Background" Value="#252526"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+        </Style>
+
+    </Window.Resources>
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="Tiberio Edition V6.5"
+                   FontSize="22"
+                   FontWeight="Bold"
+                   Margin="0,0,0,15"
+                   Foreground="#FFFFFF"/>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition/>
+                <ColumnDefinition/>
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0">
+                <Button x:Name="BtnPuliziaBase" Content="🧹 Pulizia Base"/>
+                <Button x:Name="BtnPuliziaGaming" Content="🎮 Pulizia Gaming"/>
+                <Button x:Name="BtnPuliziaBrowser" Content="🌐 Pulizia Browser"/>
+                <Button x:Name="BtnPuliziaUSB" Content="💾 Pulizia USB"/>
+                <Button x:Name="BtnSalvaDriver" Content="📦 Salva Driver"/>
+                <Button x:Name="BtnManutenzioneCompleta" Content="🛠 Manutenzione Completa" Margin="0,10,0,8"/>
+                <Button x:Name="BtnRiparazioneSistema" Content="🔧 Riparazione Sistema"/>
+                <Button x:Name="BtnControllaAggiornamenti" Content="⬆️ Controlla Aggiornamenti" Margin="0,10,0,0"/>
+            </StackPanel>
+
+            <StackPanel Grid.Column="1">
+                <Button x:Name="BtnGamingBoost" Content="⚡ Gaming Boost"/>
+                <Button x:Name="BtnGamingBoostPlus" Content="🔥 Gaming Boost PLUS"/>
+                <Button x:Name="BtnOttimizzaRete" Content="📡 Ottimizza Rete"/>
+                <Button x:Name="BtnEsci" Content="❌ Esci" Margin="0,20,0,0"/>
+            </StackPanel>
+        </Grid>
+
+        <ProgressBar x:Name="ProgressBarOperazione" Grid.Row="2" Margin="0,15,0,5"/>
+
+        <StatusBar Grid.Row="3">
+            <StatusBarItem>
+                <TextBlock x:Name="TxtStatus" Text="Pronto."/>
+            </StatusBarItem>
+        </StatusBar>
+
+    </Grid>
 </Window>
-"@
 
 $reader=New-Object System.Xml.XmlNodeReader $x
 $Window=[Windows.Markup.XamlReader]::Load($reader)
@@ -585,7 +572,7 @@ $BtnGamingBoost.Add_Click({
     $TxtStatus.Text="Completato"
 })
 
-# Gaming Boost PLUS (manuale, opzionale)
+# Gaming Boost PLUS (manuale)
 $BtnGamingBoostPlus.Add_Click({
     $TxtStatus.Text="Gaming Boost PLUS..."
     GameBoost-Plus-Locked
