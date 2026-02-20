@@ -499,6 +499,7 @@ if(-not (Get-Job -Name "AutoGameBoost" -ErrorAction SilentlyContinue)){
 
     </Grid>
 </Window>
+"@
 
 $reader=New-Object System.Xml.XmlNodeReader $x
 $Window=[Windows.Markup.XamlReader]::Load($reader)
