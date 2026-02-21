@@ -1,7 +1,7 @@
 # ============================
-#   VERSIONE SCRIPT (LEGGERA)
+#   VERSIONE SCRIPT (LEGGERA + FUNZIONALITÀ RICHIESTE)
 # ============================
-$VersioneLocale = "6.2.0-Light"
+$VersioneLocale = "6.2.0-Light-Plus-Full"
 
 # ============================
 #   MODALITÀ AGGRESSIVE OPTIMIZATIONS (disattivata per stabilità)
@@ -13,7 +13,7 @@ $global:AggressiveOptimizations = $false
 # ============================
 function Write-Log {
     param([string]$msg)
-    $logPath = "$env:USERPROFILE\Desktop\TiberioEditionV6-Light.log"
+    $logPath = "$env:USERPROFILE\Desktop\TiberioEditionV6-Light-Plus-Full.log"
     $timestamp = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
     $entry = "[$timestamp] $msg"
     try {
@@ -345,12 +345,149 @@ function Ripristina-5GNSA {
 }
 
 # ============================
-#   GUI XAML (SEMPLIFICATA)
+#   FUNZIONE: BACKUP DRIVER IN KDRIVE (DIRETTAMENTE IN kDrive)
+# ============================
+function Backup-DriverInKDrive {
+    Write-Log "Avvio backup driver in kDrive..."
+    $dest = "C:\Users\tiber\kDrive\Backup Driver"
+
+    # Crea la cartella di destinazione se non esiste
+    if (!(Test-Path $dest)) {
+        Write-Log "Cartella di destinazione non esiste. Creazione..."
+        New-Item -ItemType Directory -Path $dest -ErrorAction Stop | Out-Null
+    }
+
+    try {
+        # Esegui export driver con DISM
+        Write-Log "Esportazione driver con DISM..."
+        $dismCmd = "dism /online /export-driver /destination:`"$dest`""
+        $result = Start-Process powershell -Verb RunAs -ArgumentList "-NoProfile -Command `"$dismCmd`"" -Wait -PassThru
+
+        Write-Log "DISM completato con exit code: $($result.ExitCode)"
+
+        if ($result.ExitCode -eq 0) {
+            Write-Log "Backup driver completato in: $dest"
+            $TxtStatus.Text = "Backup driver completato in kDrive."
+        } else {
+            Write-Log "Errore durante il backup driver (exit code: $($result.ExitCode))"
+            $TxtStatus.Text = "Errore durante il backup driver."
+        }
+    } catch {
+        Write-Log "Errore durante il backup driver: $($_.Exception.Message)"
+        $TxtStatus.Text = "Errore durante il backup driver."
+    }
+}
+
+# ============================
+#   FUNZIONE: BACKUP DOCUMENTI IN KDRIVE (CON ROBOCOPY)
+# ============================
+function Backup-DocumentiInKDrive {
+    Write-Log "Avvio backup documenti in kDrive..."
+    $source = "C:\Users\tiber\Documents"
+    $dest = "C:\Users\tiber\kDrive\backup documenti"
+
+    # Crea la cartella di destinazione se non esiste
+    if (!(Test-Path $dest)) {
+        Write-Log "Cartella di destinazione non esiste. Creazione..."
+        New-Item -ItemType Directory -Path $dest -ErrorAction Stop | Out-Null
+    }
+
+    try {
+        Write-Log "Esecuzione robocopy..."
+        $robocopyCmd = "robocopy `"$source`" `"$dest`" /E /XO /R:2 /W:2 /FFT /Z /XA:SH"
+        $result = Start-Process robocopy -ArgumentList "/E /XO /R:2 /W:2 /FFT /Z /XA:SH `"$source`" `"$dest`"" -Wait -PassThru
+
+        Write-Log "robocopy completato con exit code: $($result.ExitCode)"
+
+        if ($result.ExitCode -le 1) {
+            Write-Log "Backup documenti completato con successo."
+            $TxtStatus.Text = "Backup documenti completato."
+        } else {
+            Write-Log "Errore durante il backup documenti (exit code: $($result.ExitCode))"
+            $TxtStatus.Text = "Errore durante il backup documenti."
+        }
+    } catch {
+        Write-Log "Errore durante il backup documenti: $($_.Exception.Message)"
+        $TxtStatus.Text = "Errore durante il backup documenti."
+    }
+}
+
+# ============================
+#   FUNZIONE: RIPARA SISTEMA
+# ============================
+function Ripara-Sistema {
+    Write-Log "Avvio riparazione sistema..."
+    Update-ProgressBar -Value 10 -Status "Controllo integrità file di sistema..."
+
+    try {
+        # SFC
+        Write-Log "Esecuzione sfc /scannow..."
+        $sfcResult = Start-Process powershell -Verb RunAs -ArgumentList "-NoProfile -Command `"sfc /scannow`"" -Wait -PassThru
+        Write-Log "sfc completato con exit code: $($sfcResult.ExitCode)"
+
+        # DISM
+        Update-ProgressBar -Value 50 -Status "Riparazione immagine sistema..."
+        Write-Log "Esecuzione DISM..."
+        $dismCmd = "dism /online /cleanup-image /restorehealth"
+        $dismResult = Start-Process powershell -Verb RunAs -ArgumentList "-NoProfile -Command `"$dismCmd`"" -Wait -PassThru
+        Write-Log "DISM completato con exit code: $($dismResult.ExitCode)"
+
+        # Chkdsk (opzionale)
+        Update-ProgressBar -Value 80 -Status "Controllo disco (opzionale)..."
+        Write-Log "Chkdsk non eseguito automaticamente. Avvia manualmente se necessario."
+
+        Update-ProgressBar -Value 100 -Status "Riparazione sistema completata."
+        $TxtStatus.Text = "Riparazione sistema completata."
+    } catch {
+        Write-Log "Errore durante la riparazione sistema: $($_.Exception.Message)"
+        $TxtStatus.Text = "Errore durante la riparazione sistema."
+    }
+}
+
+# ============================
+#   FUNZIONE: CONTROLLA ETS2
+# ============================
+function Controlla-ETS2 {
+    $proc = Get-Process | Where-Object { $_.ProcessName -like "*eurotruck*" -or $_.ProcessName -like "*ets2*" } -ErrorAction SilentlyContinue
+    return $proc -ne $null
+}
+
+# ============================
+#   TIMER PER RILEVAMENTO ETS2
+# ============================
+$global:GamingBoostAttivo = $false
+$timer = New-Object System.Windows.Threading.DispatcherTimer
+$timer.Interval = [TimeSpan]::FromSeconds(5)
+
+$timer.Add_Tick({
+    if (Controlla-ETS2) {
+        if (-not $global:GamingBoostAttivo) {
+            Write-Log "ETS2 rilevato → Avvio Gaming Boost PLUS + Ottimizzazione Rete"
+            Chiudi-ProcessiNonNecessari
+            Ottimizza-Ping
+            Ottimizza-5GNSA
+            $TxtStatus.Text = "Gaming Boost PLUS + Rete ottimizzata (ETS2 rilevato)"
+            $global:GamingBoostAttivo = $true
+        }
+    }
+    else {
+        if ($global:GamingBoostAttivo) {
+            Write-Log "ETS2 chiuso → Ripristino completo"
+            Ripristina-ProcessiERete
+            Ripristina-5GNSA
+            $TxtStatus.Text = "Ripristino completo (ETS2 chiuso)"
+            $global:GamingBoostAttivo = $false
+        }
+    }
+})
+
+# ============================
+#   GUI XAML (AGGIORNATA)
 # ============================
 [xml]$xaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-       Title="Tiberio Edition V6-Light" Height="580" Width="720"
+       Title="Tiberio Edition V6-Light-Plus-Full" Height="580" Width="720"
        WindowStartupLocation="CenterScreen"
        Background="#F3F3F3"
        ResizeMode="NoResize">
@@ -362,7 +499,7 @@ function Ripristina-5GNSA {
            <RowDefinition Height="Auto"/>
        </Grid.RowDefinitions>
 
-       <TextBlock Text="Tiberio Edition V6-Light"
+       <TextBlock Text="Tiberio Edition V6-Light-Plus-Full"
                   FontSize="22"
                   FontWeight="Bold"
                   Foreground="#202020"
@@ -377,6 +514,7 @@ function Ripristina-5GNSA {
            <StackPanel Grid.Column="0" Margin="0,0,10,0">
                <TextBlock Text="Manutenzione" FontWeight="Bold" Margin="0,0,0,8"/>
                <Button x:Name="BtnPuliziaBase" Content="Pulizia Base" Height="32" Margin="0,0,0,6"/>
+               <Button x:Name="BtnRiparazioneSistema" Content="Riparazione Sistema" Height="32" Margin="0,0,0,6"/>
                <Button x:Name="BtnControllaAggiornamenti" Content="Controlla Aggiornamenti" Height="32" Margin="0,10,0,0"/>
            </StackPanel>
 
@@ -384,6 +522,8 @@ function Ripristina-5GNSA {
                <TextBlock Text="Gaming" FontWeight="Bold" Margin="0,0,0,8"/>
                <Button x:Name="BtnGamingBoostPlus" Content="Gaming Boost PLUS" Height="32" Margin="0,0,0,6"/>
                <Button x:Name="BtnOttimizzaRete" Content="Ottimizzazione Rete" Height="32" Margin="0,0,0,6"/>
+               <Button x:Name="BtnBackupDriver" Content="Backup Driver in kDrive" Height="32" Margin="0,0,0,6"/>
+               <Button x:Name="BtnBackupDocumenti" Content="Backup Documenti in kDrive" Height="32" Margin="0,0,0,6"/>
                <Button x:Name="BtnEsci" Content="Esci" Height="32" Margin="0,20,0,0"/>
            </StackPanel>
        </Grid>
@@ -414,6 +554,9 @@ $BtnGamingBoostPlus      = $window.FindName("BtnGamingBoostPlus")
 $BtnOttimizzaRete        = $window.FindName("BtnOttimizzaRete")
 $BtnEsci                 = $window.FindName("BtnEsci")
 $BtnControllaAggiornamenti = $window.FindName("BtnControllaAggiornamenti")
+$BtnRiparazioneSistema   = $window.FindName("BtnRiparazioneSistema")
+$BtnBackupDriver         = $window.FindName("BtnBackupDriver")
+$BtnBackupDocumenti      = $window.FindName("BtnBackupDocumenti")
 $TxtStatus               = $window.FindName("TxtStatus")
 $ProgressBar             = $window.FindName("ProgressBar")
 
@@ -476,7 +619,7 @@ $BtnControllaAggiornamenti.Add_Click({
         if ($MyInvocation.MyCommand.Definition) {
             $percorsoLocale = $MyInvocation.MyCommand.Definition
         } else {
-            $percorsoLocale = Join-Path $PSScriptRoot "TiberioEditionV6-Light.ps1"
+            $percorsoLocale = Join-Path $PSScriptRoot "TiberioEditionV6-Light-Plus-Full.ps1"
             Write-Log "Avviso: Percorso dello script non determinato. Usato: $percorsoLocale"
         }
         $result = Aggiorna-Script -NuovoContenuto $risultato -PercorsoLocale $percorsoLocale
@@ -492,6 +635,30 @@ $BtnControllaAggiornamenti.Add_Click({
     }
 })
 
+$BtnRiparazioneSistema.Add_Click({
+    $TxtStatus.Text = "Riparazione sistema in corso..."
+    Write-Log "Avvio Riparazione Sistema V6"
+    Update-ProgressBar -Value 10 -Status "Riparazione sistema in corso..."
+    Ripara-Sistema
+    Update-ProgressBar -Value 100 -Status "Riparazione sistema completata."
+})
+
+$BtnBackupDriver.Add_Click({
+    $TxtStatus.Text = "Backup driver in corso..."
+    Write-Log "Avvio backup driver"
+    Update-ProgressBar -Value 10 -Status "Backup driver in corso..."
+    Backup-DriverInKDrive
+    Update-ProgressBar -Value 100 -Status "Backup driver completato."
+})
+
+$BtnBackupDocumenti.Add_Click({
+    $TxtStatus.Text = "Backup documenti in corso..."
+    Write-Log "Avvio backup documenti"
+    Update-ProgressBar -Value 10 -Status "Backup documenti in corso..."
+    Backup-DocumentiInKDrive
+    Update-ProgressBar -Value 100 -Status "Backup documenti completato."
+})
+
 $BtnEsci.Add_Click({
     Update-ProgressBar -Value 0 -Status "Pronto."
     $window.Close()
@@ -500,5 +667,10 @@ $BtnEsci.Add_Click({
 # ============================
 #   AVVIO GUI
 # ============================
-Write-Log "Avvio Tiberio Edition V6-Light GUI..."
+Write-Log "Avvio Tiberio Edition V6-Light-Plus-Full GUI..."
+$timer.Start()
+$window.Add_Closed({
+    $timer.Stop()
+    $timer = $null
+})
 $window.ShowDialog() | Out-Null
