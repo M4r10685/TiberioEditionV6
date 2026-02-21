@@ -1,7 +1,7 @@
 # ============================
-#   VERSIONE SCRIPT (LEGGERA + FUNZIONALITÀ RICHIESTE)
+#   VERSIONE SCRIPT (PRONTA ALL'USO - SENZA ERRORI)
 # ============================
-$VersioneLocale = "6.2.0-Light-Plus-Full"
+$VersioneLocale = "6.2.0-Light-Plus-Full-Ready"
 
 # ============================
 #   MODALITÀ AGGRESSIVE OPTIMIZATIONS (disattivata per stabilità)
@@ -13,7 +13,7 @@ $global:AggressiveOptimizations = $false
 # ============================
 function Write-Log {
     param([string]$msg)
-    $logPath = "$env:USERPROFILE\Desktop\TiberioEditionV6-Light-Plus-Full.log"
+    $logPath = "$env:USERPROFILE\Desktop\TiberioEditionV6-Light-Plus-Full-Ready.log"
     $timestamp = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
     $entry = "[$timestamp] $msg"
     try {
@@ -23,6 +23,19 @@ function Write-Log {
         $fullMessage = "Impossibile scrivere nel log - $errorMessage"
         Write-Error $fullMessage
     }
+}
+
+# ============================
+#   CONTROLLO PRESENZA PRESENTATIONFRAMEWORK
+# ============================
+try {
+    Add-Type -AssemblyName PresentationFramework -ErrorAction Stop
+} catch {
+    Write-Error "Impossibile caricare PresentationFramework. Assicurati di avere .NET Framework 3.5+ installato."
+    Write-Error "Esegui su Windows 10/11 con .NET Framework completo."
+    Write-Log "Errore caricamento PresentationFramework: $($_.Exception.Message)"
+    pause
+    exit 1
 }
 
 # ============================
@@ -487,7 +500,7 @@ $timer.Add_Tick({
 [xml]$xaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-       Title="Tiberio Edition V6-Light-Plus-Full" Height="580" Width="720"
+       Title="Tiberio Edition V6-Light-Plus-Full-Ready" Height="580" Width="720"
        WindowStartupLocation="CenterScreen"
        Background="#F3F3F3"
        ResizeMode="NoResize">
@@ -499,7 +512,7 @@ $timer.Add_Tick({
            <RowDefinition Height="Auto"/>
        </Grid.RowDefinitions>
 
-       <TextBlock Text="Tiberio Edition V6-Light-Plus-Full"
+       <TextBlock Text="Tiberio Edition V6-Light-Plus-Full-Ready"
                   FontSize="22"
                   FontWeight="Bold"
                   Foreground="#202020"
@@ -543,8 +556,16 @@ $timer.Add_Tick({
 # ============================
 #   PARSING XAML
 # ============================
-$reader = (New-Object System.Xml.XmlNodeReader $xaml)
-$window = [Windows.Markup.XamlReader]::Load($reader)
+try {
+    $reader = (New-Object System.Xml.XmlNodeReader $xaml)
+    $window = [Windows.Markup.XamlReader]::Load($reader)
+} catch {
+    Write-Error "Errore durante il parsing del XAML: $($_.Exception.Message)"
+    Write-Error "Controlla la sintassi del XAML."
+    Write-Log "Errore parsing XAML: $($_.Exception.Message)"
+    pause
+    exit 1
+}
 
 # ============================
 #   RIFERIMENTI CONTROLLI
@@ -619,7 +640,7 @@ $BtnControllaAggiornamenti.Add_Click({
         if ($MyInvocation.MyCommand.Definition) {
             $percorsoLocale = $MyInvocation.MyCommand.Definition
         } else {
-            $percorsoLocale = Join-Path $PSScriptRoot "TiberioEditionV6-Light-Plus-Full.ps1"
+            $percorsoLocale = Join-Path $PSScriptRoot "TiberioEditionV6-Light-Plus-Full-Ready.ps1"
             Write-Log "Avviso: Percorso dello script non determinato. Usato: $percorsoLocale"
         }
         $result = Aggiorna-Script -NuovoContenuto $risultato -PercorsoLocale $percorsoLocale
@@ -667,7 +688,7 @@ $BtnEsci.Add_Click({
 # ============================
 #   AVVIO GUI
 # ============================
-Write-Log "Avvio Tiberio Edition V6-Light-Plus-Full GUI..."
+Write-Log "Avvio Tiberio Edition V6-Light-Plus-Full-Ready GUI..."
 $timer.Start()
 $window.Add_Closed({
     $timer.Stop()
